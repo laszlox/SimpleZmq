@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.22310.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleZmq", "SimpleZmq\SimpleZmq.csproj", "{94CD06CA-B533-41E3-9792-C1C7C5741CAF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleZmq.Test", "SimpleZmq.Test\SimpleZmq.Test.csproj", "{D39E790C-3DDF-458A-9995-F5D88DD17D12}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{94CD06CA-B533-41E3-9792-C1C7C5741CAF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{94CD06CA-B533-41E3-9792-C1C7C5741CAF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{94CD06CA-B533-41E3-9792-C1C7C5741CAF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{94CD06CA-B533-41E3-9792-C1C7C5741CAF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D39E790C-3DDF-458A-9995-F5D88DD17D12}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D39E790C-3DDF-458A-9995-F5D88DD17D12}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D39E790C-3DDF-458A-9995-F5D88DD17D12}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D39E790C-3DDF-458A-9995-F5D88DD17D12}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
