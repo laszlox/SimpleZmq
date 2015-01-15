@@ -40,7 +40,7 @@ namespace SimpleZmq
             info.AddValue("ZmqException._zmqErrNo", _zmqErrNo);
         }
 
-        public int ZmqErrNo
+        public int Number
         {
             get { return _zmqErrNo; }
         }

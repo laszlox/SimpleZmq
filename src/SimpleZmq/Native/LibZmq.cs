@@ -58,12 +58,15 @@ namespace SimpleZmq.Native
             }
         }
 
+        #region Misc
         [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
         public static extern int zmq_errno();
 
         [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr zmq_strerror(int errnum);
+        #endregion
 
+        #region Context
         [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr zmq_ctx_new();
 
@@ -78,6 +81,14 @@ namespace SimpleZmq.Native
 
         [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
         public static extern int zmq_ctx_get(IntPtr contextPtr, int option);
+        #endregion
 
+        #region Sockets
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr zmq_socket(IntPtr context, int type);
+
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int zmq_close(IntPtr socket);
+        #endregion
     }
 }

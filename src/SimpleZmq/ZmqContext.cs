@@ -20,7 +20,7 @@ namespace SimpleZmq
 
         public ZmqContext()
         {
-            _zmqContextPtr = LibZmq.zmq_ctx_new();
+            _zmqContextPtr = Zmq.ThrowIfError(LibZmq.zmq_ctx_new());
         }
 
         public int NumberOfIoThreads
@@ -41,6 +41,11 @@ namespace SimpleZmq
             set { Zmq.ThrowIfError(LibZmq.zmq_ctx_set(_zmqContextPtr, ZMQ_IPV6, value ? 1 : 0)); }
         }
 
+        public ZmqSocket CreateSocket(SocketType socketType)
+        {
+            return new ZmqSocket(Zmq.ThrowIfError(LibZmq.zmq_socket(_zmqContextPtr, (int)socketType)));
+        }
+
         ~ZmqContext()
         {
             Dispose(false);
@@ -51,12 +56,14 @@ namespace SimpleZmq
             if (_disposed) return;
             if (_zmqContextPtr == IntPtr.Zero) return;
 
-            while (LibZmq.zmq_ctx_term(_zmqContextPtr) != 0)
+            int errNo;
+            string errString;
+            while (Zmq.ErrorNumberWithDescription(LibZmq.zmq_ctx_term(_zmqContextPtr), out errNo, out errString))
             {
-                int errNo = LibZmq.zmq_errno();
-                if (errNo != LibZmq.ErrNo.EAGAIN)
+                if (errNo != ErrNo.EAGAIN)
                 {
                     // it must be EFAULT, we can't do too much about it.
+                    // TODO log the error. We can't throw exception because we may be in a finally block.
                     return;
                 }
                 // if EAGAIN, just retry.

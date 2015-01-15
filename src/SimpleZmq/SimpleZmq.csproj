@@ -40,18 +40,21 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Native\LibZmq.cs" />
+    <Compile Include="SocketType.cs" />
     <Compile Include="Native\Win32.cs" />
     <Compile Include="ZmqContext.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Zmq.cs" />
+    <Compile Include="ZmqError.cs" />
     <Compile Include="ZmqException.cs" />
+    <Compile Include="ZmqSocket.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="lib\x64\libzmq.dll" />
     <EmbeddedResource Include="lib\x86\libzmq.dll" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Native\LibZmq.ErrNo.cs" />
+    <Compile Include="Native\ErrNo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
