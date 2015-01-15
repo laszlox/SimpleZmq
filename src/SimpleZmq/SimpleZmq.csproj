@@ -43,6 +43,8 @@
     <Compile Include="Native\Win32.cs" />
     <Compile Include="ZmqContext.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Zmq.cs" />
+    <Compile Include="ZmqException.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="lib\x64\libzmq.dll" />

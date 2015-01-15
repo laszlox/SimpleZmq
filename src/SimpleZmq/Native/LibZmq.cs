@@ -62,6 +62,9 @@ namespace SimpleZmq.Native
         public static extern int zmq_errno();
 
         [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr zmq_strerror(int errnum);
+
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr zmq_ctx_new();
 
         [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]

@@ -47,6 +47,7 @@ local.properties
 [Rr]elease/
 x64/
 build/
+*.sln.ide/
 [Bb]in/
 [Oo]bj/
 
