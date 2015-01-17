@@ -14,6 +14,16 @@ namespace SimpleZmq
     {
         public const int ErrorReturnValue = -1;
 
+        public static int RetryIfInterrupted<TArg1, TArg2, TArg3, TArg4>(Func<TArg1, TArg2, TArg3, TArg4, int> function, TArg1 arg1, TArg2 arg2, TArg3 arg3, TArg4 arg4)
+        {
+            int returnValue;
+            do
+            {
+                returnValue = function(arg1, arg2, arg3, arg4);
+            } while (returnValue == -1 && LibZmq.zmq_errno() == ErrNo.EINTR);
+            return returnValue;
+        }
+
         public static ZmqError Error(int returnValue)
         {
             if (returnValue >= 0) return null;

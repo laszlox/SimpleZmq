@@ -37,6 +37,9 @@
     <LangVersion>4</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="MSTestExtensions">
+      <HintPath>..\packages\MSTestExtensions.3.0.0\lib\net40\MSTestExtensions.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
@@ -57,12 +60,16 @@
   <ItemGroup>
     <Compile Include="ZmqContextTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ZmqSocketTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SimpleZmq\SimpleZmq.csproj">
       <Project>{94cd06ca-b533-41e3-9792-c1c7c5741caf}</Project>
       <Name>SimpleZmq</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">

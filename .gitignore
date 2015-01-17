@@ -48,6 +48,7 @@ local.properties
 x64/
 build/
 *.sln.ide/
+[Pp]ackages/
 [Bb]in/
 [Oo]bj/
 

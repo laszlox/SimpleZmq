@@ -94,7 +94,19 @@ namespace SimpleZmq.Native
         public static extern int zmq_connect(IntPtr socket, [MarshalAs(UnmanagedType.LPStr)] string endpoint);
 
         [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int zmq_send(IntPtr socket, byte[] buf, int len, int flags);
+
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int zmq_setsockopt(IntPtr socket, int option_name, IntPtr option_value, int option_len);
+
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int zmq_getsockopt(IntPtr socket, int option_name, IntPtr option_value, IntPtr option_len);
+
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
         public static extern int zmq_close(IntPtr socket);
+
+        // pre-created delegate instances so that we can pass zmq functions as delegates without allocating on the managed heap
+        public static readonly Func<IntPtr, byte[], int, int, int> zmq_send_func = LibZmq.zmq_send;
         #endregion
     }
 }

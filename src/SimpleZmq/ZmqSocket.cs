@@ -9,9 +9,12 @@ namespace SimpleZmq
 {
     public class ZmqSocket : IDisposable
     {
-        private readonly Action<string> _logError;
-        private IntPtr                  _zmqSocketPtr;
-        private bool                    _disposed;
+        private const int ZMQ_DONTWAIT = 1;
+        private const int ZMQ_SNDMORE = 2;
+
+        private readonly Action<string>     _logError;
+        private IntPtr                      _zmqSocketPtr;
+        private bool                        _disposed;
 
         ~ZmqSocket()
         {
@@ -36,8 +39,8 @@ namespace SimpleZmq
 
         internal ZmqSocket(IntPtr zmqSocketPtr, Action<string> logError)
         {
-            if (zmqSocketPtr == IntPtr.Zero) throw new ArgumentNullException("zmqSocketPtr");
-            if (logError == null) throw new ArgumentNullException("logError");
+            Argument.ExpectNonZero(zmqSocketPtr, "zmqSocketPtr");
+            Argument.ExpectNonNull(logError, "logError");
 
             _logError = logError;
             _zmqSocketPtr = zmqSocketPtr;
@@ -45,12 +48,33 @@ namespace SimpleZmq
 
         public void Bind(string endPoint)
         {
+            Argument.ExpectNonNullAndWhiteSpace(endPoint, "endPoint");
+
             ThrowIfSocketError(LibZmq.zmq_bind(_zmqSocketPtr, endPoint));
         }
 
         public void Connect(string endPoint)
         {
+            Argument.ExpectNonNullAndWhiteSpace(endPoint, "endPoint");
+
             ThrowIfSocketError(LibZmq.zmq_connect(_zmqSocketPtr, endPoint));
+        }
+
+        /// <summary>
+        /// Sends the specified byte buffer into the socket.
+        /// </summary>
+        /// <param name="buffer">The bytes to send.</param>
+        /// <param name="length">The length of the data to send.</param>
+        /// <param name="doNotWait">If true, the send operation won't block for DEALER and PUSH sockets (it would normally block if there is no peer at the other end). In that case it'll return false instead of blocking.</param>
+        /// <param name="hasMore">True if the message has more frames to send.</param>
+        /// <returns>True if the buffer was sent successfully, false if it couldn't queue it in the socket and should be retried (it can happen only when doNotWait is true).</returns>
+        public bool Send(byte[] buffer, int length, bool doNotWait = false, bool hasMore = false)
+        {
+            int sendFlags = (doNotWait ? ZMQ_DONTWAIT : 0) | (hasMore ? ZMQ_SNDMORE : 0);
+            var zmqError = SocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_send_func, _zmqSocketPtr, buffer, length, sendFlags));
+            if (zmqError.ShouldTryAgain) return false;
+            Zmq.ThrowIfError(zmqError);
+            return true;
         }
 
         public virtual void Dispose(bool isDisposing)

@@ -34,7 +34,7 @@ namespace SimpleZmq
             get { return _number == ErrNo.EINTR; }
         }
 
-        public bool ShouldRetry
+        public bool ShouldTryAgain
         {
             get { return _number == ErrNo.EAGAIN; }
         }

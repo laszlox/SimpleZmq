@@ -42,6 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Native\LibZmq.cs" />
+    <Compile Include="Argument.cs" />
     <Compile Include="SocketType.cs" />
     <Compile Include="Native\Win32.cs" />
     <Compile Include="ZmqContext.cs" />
