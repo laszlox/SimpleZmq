@@ -12,14 +12,16 @@ namespace SimpleZmq
         private const int ZMQ_MAX_SOCKETS = 2;
         private const int ZMQ_IPV6 = 42;
 
-        private IntPtr _zmqContextPtr;
-        private bool   _disposed;
+        private readonly Action<string> _logError;
+        private IntPtr                  _zmqContextPtr;
+        private bool                    _disposed;
 
         public const int DefaultNumberOfIoThreads = 1;
         public const int DefaultMaxNumberOfSockets = 1023;
 
-        public ZmqContext()
+        public ZmqContext(Action<string> logError = null)
         {
+            _logError = logError ?? (s => {});
             _zmqContextPtr = Zmq.ThrowIfError(LibZmq.zmq_ctx_new());
         }
 
@@ -43,7 +45,7 @@ namespace SimpleZmq
 
         public ZmqSocket CreateSocket(SocketType socketType)
         {
-            return new ZmqSocket(Zmq.ThrowIfError(LibZmq.zmq_socket(_zmqContextPtr, (int)socketType)));
+            return new ZmqSocket(Zmq.ThrowIfError(LibZmq.zmq_socket(_zmqContextPtr, (int)socketType)), _logError);
         }
 
         ~ZmqContext()
@@ -56,14 +58,13 @@ namespace SimpleZmq
             if (_disposed) return;
             if (_zmqContextPtr == IntPtr.Zero) return;
 
-            int errNo;
-            string errString;
-            while (Zmq.ErrorNumberWithDescription(LibZmq.zmq_ctx_term(_zmqContextPtr), out errNo, out errString))
+            ZmqError zmqError;
+            while ((zmqError = Zmq.Error(LibZmq.zmq_ctx_term(_zmqContextPtr))) != null)
             {
-                if (errNo != ErrNo.EAGAIN)
+                if (zmqError.Number != ErrNo.EAGAIN)
                 {
-                    // it must be EFAULT, we can't do too much about it.
-                    // TODO log the error. We can't throw exception because we may be in a finally block.
+                    // it must be EFAULT, we can't do too much about it. We can't throw exception because we may be in a finally block.
+                    _logError(String.Format("ZmqContext.Dispose(): {0}", zmqError));
                     return;
                 }
                 // if EAGAIN, just retry.

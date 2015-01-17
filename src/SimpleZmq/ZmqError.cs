@@ -28,5 +28,25 @@ namespace SimpleZmq
         {
             get { return _description; }
         }
+
+        public bool WasInterrupted
+        {
+            get { return _number == ErrNo.EINTR; }
+        }
+
+        public bool ShouldRetry
+        {
+            get { return _number == ErrNo.EAGAIN; }
+        }
+
+        public bool ContextTerminated
+        {
+            get { return _number == ErrNo.ETERM; }
+        }
+
+        public override string ToString()
+        {
+            return String.Format("{0} ({1})", _description, _number);
+        }
     }
 }

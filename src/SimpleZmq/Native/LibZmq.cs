@@ -88,6 +88,12 @@ namespace SimpleZmq.Native
         public static extern IntPtr zmq_socket(IntPtr context, int type);
 
         [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int zmq_bind(IntPtr socket, [MarshalAs(UnmanagedType.LPStr)] string endpoint);
+
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int zmq_connect(IntPtr socket, [MarshalAs(UnmanagedType.LPStr)] string endpoint);
+
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
         public static extern int zmq_close(IntPtr socket);
         #endregion
     }

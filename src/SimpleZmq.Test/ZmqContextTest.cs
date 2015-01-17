@@ -25,5 +25,18 @@ namespace SimpleZmq.Test
                 Assert.AreEqual(zmqContext.IPv6, true);
             }
         }
+
+        [TestMethod]
+        public void Create_And_Destroy_Sockets()
+        {
+            using (var zmqContext = new ZmqContext())
+            {
+                using (ZmqSocket pushSocket = zmqContext.CreateSocket(SocketType.Push), pullSocket = zmqContext.CreateSocket(SocketType.Pull))
+                {
+                    pushSocket.Bind("inproc://test");
+                    pullSocket.Connect("inproc://test");
+                }
+            }
+        }
     }
 }

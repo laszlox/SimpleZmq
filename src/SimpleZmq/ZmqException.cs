@@ -17,19 +17,14 @@ namespace SimpleZmq
             _zmqErrNo = info.GetInt32("ZmqException._zmqErrNo");
         }
 
-        public ZmqException(int zmqErrNo)
+        public ZmqException(ZmqError zmqError) : base(zmqError.ToString())
         {
-            _zmqErrNo = zmqErrNo;
+            _zmqErrNo = zmqError.Number;
         }
 
-        public ZmqException(int zmqErrNo, string message) : base(message)
+        public ZmqException(ZmqError zmqError, Exception innerException) : base(zmqError.ToString(), innerException)
         {
-            _zmqErrNo = zmqErrNo;
-        }
-
-        public ZmqException(int zmqErrNo, string message, Exception innerException) : base(message, innerException)
-        {
-            _zmqErrNo = zmqErrNo;
+            _zmqErrNo = zmqError.Number;
         }
 
         [SecurityPermissionAttribute(SecurityAction.Demand, SerializationFormatter = true)]

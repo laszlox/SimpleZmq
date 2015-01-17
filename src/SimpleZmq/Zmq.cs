@@ -14,7 +14,7 @@ namespace SimpleZmq
     {
         public const int ErrorReturnValue = -1;
 
-        public static ZmqError ErrorNumberWithDescription(int returnValue)
+        public static ZmqError Error(int returnValue)
         {
             if (returnValue >= 0) return null;
             if (returnValue == ErrorReturnValue)
@@ -24,24 +24,30 @@ namespace SimpleZmq
             throw new ArgumentException(String.Format("returnValue can be either {0} or 0 or greater, but it was {1}.", ErrorReturnValue, returnValue));
         }
 
-        public static int ThrowIfError(int returnValue)
+        public static ZmqError Error(IntPtr returnValue)
         {
-            if (returnValue >= 0) return returnValue;
-            if (returnValue == ErrorReturnValue)
-            {
-                var errNo = LibZmq.zmq_errno();
-                var errStrPtr = LibZmq.zmq_strerror(errNo);
-                throw new ZmqException(errNo, Marshal.PtrToStringAnsi(errStrPtr));
-            }
-            throw new ArgumentException(String.Format("returnValue can be either {0} or 0 or greater, but it was {1}.", ErrorReturnValue, returnValue));
+            if (returnValue != IntPtr.Zero) return null;
+            return new ZmqError(LibZmq.zmq_errno());
         }
 
-        public static IntPtr ThrowIfError(IntPtr pointer)
+        public static void ThrowIfError(ZmqError zmqError)
         {
-            if (pointer != IntPtr.Zero) return pointer;
-            var errNo = LibZmq.zmq_errno();
-            var errStrPtr = LibZmq.zmq_strerror(errNo);
-            throw new ZmqException(errNo, Marshal.PtrToStringAnsi(errStrPtr));
+            if (zmqError == null) return;
+            throw new ZmqException(zmqError);
+        }
+
+        public static int ThrowIfError(int returnValue)
+        {
+            var zmqError = Error(returnValue);
+            if (zmqError == null) return returnValue;
+            throw new ZmqException(zmqError);
+        }
+
+        public static IntPtr ThrowIfError(IntPtr returnValue)
+        {
+            var zmqError = Error(returnValue);
+            if (zmqError == null) return returnValue;
+            throw new ZmqException(zmqError);
         }
     }
 }
