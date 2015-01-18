@@ -62,6 +62,8 @@ namespace SimpleZmq
         private const int ZMQ_CONFLATE = 54;
         private const int ZMQ_ZAP_DOMAIN = 55;
 
+        private const int MaxBinaryOptionBufferSize = 255;
+
         private struct NativeAllocatedMemory : IDisposable
         {
             public static NativeAllocatedMemory Create(int size)
@@ -103,6 +105,34 @@ namespace SimpleZmq
             Zmq.ThrowIfError(SocketError(returnValue));
         }
 
+        private void SetBufferOption(int optionType, byte[] value, int bufferSize = 0)
+        {
+            if (bufferSize > 0 && value.Length != bufferSize) throw new ArgumentException(String.Format("value's size is {0}, but it must be {1}.", value.Length, bufferSize));
+            if (value.Length > MaxBinaryOptionBufferSize) throw new ArgumentException(String.Format("value's size is {0}, but it cannot be larger than {1}.", value.Length, MaxBinaryOptionBufferSize));
+
+            using (var valueBuffer = NativeAllocatedMemory.Create(value.Length))
+            {
+                Marshal.Copy(value, 0, valueBuffer.Pointer, value.Length);
+                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
+            }
+        }
+
+        private byte[] GetBufferOption(int optionType, int bufferSize = 0)
+        {
+            using (var sizeBuffer = NativeAllocatedMemory.Create(IntPtr.Size))
+            using (var valueBuffer = NativeAllocatedMemory.Create(bufferSize == 0 ? MaxBinaryOptionBufferSize : bufferSize))
+            {
+                // TODO is it 32 for 64bit?
+                Marshal.WriteInt32(sizeBuffer.Pointer, valueBuffer.Size);
+
+                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
+                // TODO heap-allocation: it's OK, because it can happen only at getting binary option values, which are rare and definitely not typical at the message sending/receiving.
+                var value = new byte[Marshal.ReadInt32(sizeBuffer.Pointer)];
+                Marshal.Copy(valueBuffer.Pointer, value, 0, value.Length);
+                return value;
+            }
+        }
+
         private void SetInt32Option(int optionType, int value)
         {
             using (var valueBuffer = NativeAllocatedMemory.Create(Marshal.SizeOf(typeof(Int32))))
@@ -117,10 +147,88 @@ namespace SimpleZmq
             using (var sizeBuffer = NativeAllocatedMemory.Create(IntPtr.Size))
             using (var valueBuffer = NativeAllocatedMemory.Create(Marshal.SizeOf(typeof(Int32))))
             {
+                // TODO is it 32 for 64bit?
                 Marshal.WriteInt32(sizeBuffer.Pointer, valueBuffer.Size);
 
                 ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
                 return Marshal.ReadInt32(valueBuffer.Pointer);
+            }
+        }
+
+        private void SetLongOption(int optionType, long value)
+        {
+            using (var valueBuffer = NativeAllocatedMemory.Create(Marshal.SizeOf(typeof(long))))
+            {
+                Marshal.WriteInt64(valueBuffer.Pointer, value);
+                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
+            }
+        }
+
+        private long GetLongOption(int optionType)
+        {
+            using (var sizeBuffer = NativeAllocatedMemory.Create(IntPtr.Size))
+            using (var valueBuffer = NativeAllocatedMemory.Create(Marshal.SizeOf(typeof(long))))
+            {
+                // TODO is it 32 for 64bit?
+                Marshal.WriteInt32(sizeBuffer.Pointer, valueBuffer.Size);
+
+                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
+                return Marshal.ReadInt64(valueBuffer.Pointer);
+            }
+        }
+
+        private void SetUlongOption(int optionType, ulong value)
+        {
+            using (var valueBuffer = NativeAllocatedMemory.Create(Marshal.SizeOf(typeof(ulong))))
+            {
+                Marshal.WriteInt64(valueBuffer.Pointer, unchecked(Convert.ToInt64(value)));
+                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
+            }
+        }
+
+        private ulong GetUlongOption(int optionType)
+        {
+            using (var sizeBuffer = NativeAllocatedMemory.Create(IntPtr.Size))
+            using (var valueBuffer = NativeAllocatedMemory.Create(Marshal.SizeOf(typeof(ulong))))
+            {
+                // TODO is it 32 for 64bit?
+                Marshal.WriteInt32(sizeBuffer.Pointer, valueBuffer.Size);
+
+                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
+                return unchecked(Convert.ToUInt64(Marshal.ReadInt64(valueBuffer.Pointer)));
+            }
+        }
+
+        private void SetStringOption(int optionType, string value, int bufferSize = 0)
+        {
+            if (value == null)
+            {
+                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, IntPtr.Zero, 0));
+            }
+            else
+            {
+                if (bufferSize > 0 && value.Length != bufferSize) throw new ArgumentException(String.Format("value's length is {0}, but it must be a {1} long string.", value.Length, bufferSize));
+
+                // TODO heap-allocation: it's OK, because it can happen only at getting binary option values, which are rare and definitely not typical at the message sending/receiving.
+                var encodedString = Encoding.ASCII.GetBytes(value + "\x0");
+                using (var valueBuffer = NativeAllocatedMemory.Create(encodedString.Length))
+                {
+                    Marshal.Copy(encodedString, 0, valueBuffer.Pointer, encodedString.Length);
+                    ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
+                }
+            }
+        }
+
+        private string GetStringOption(int optionType, int bufferSize = 0)
+        {
+            using (var sizeBuffer = NativeAllocatedMemory.Create(IntPtr.Size))
+            using (var valueBuffer = NativeAllocatedMemory.Create(bufferSize == 0 ? MaxBinaryOptionBufferSize : bufferSize))
+            {
+                // TODO is it 32 for 64bit?
+                Marshal.WriteInt32(sizeBuffer.Pointer, valueBuffer.Size);
+
+                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
+                return Marshal.PtrToStringAnsi(valueBuffer.Pointer);
             }
         }
 
@@ -165,10 +273,62 @@ namespace SimpleZmq
         }
 
         #region Socket Option Properties
+        public SocketType SocketType
+        {
+            get { return (SocketType)GetInt32Option(ZMQ_TYPE); }
+        }
+
+        public bool HasMoreToReceive
+        {
+            get { return GetInt32Option(ZMQ_RCVMORE) == 1; }
+        }
+
         public int SendHWM
         {
             get { return GetInt32Option(ZMQ_SNDHWM); }
             set { SetInt32Option(ZMQ_SNDHWM, value); }
+        }
+
+        public int ReceiveHWM
+        {
+            get { return GetInt32Option(ZMQ_RCVHWM); }
+            set { SetInt32Option(ZMQ_RCVHWM, value); }
+        }
+
+        public ulong Affinity
+        {
+            get { return GetUlongOption(ZMQ_AFFINITY); }
+            set { SetUlongOption(ZMQ_AFFINITY, value); }
+        }
+
+        public byte[] Identity
+        {
+            get { return GetBufferOption(ZMQ_IDENTITY); }
+            set { SetBufferOption(ZMQ_IDENTITY, value); }
+        }
+
+        public int Rate
+        {
+            get { return GetInt32Option(ZMQ_RATE); }
+            set { SetInt32Option(ZMQ_RATE, value); }
+        }
+
+        public int RecoveryInterval
+        {
+            get { return GetInt32Option(ZMQ_RECOVERY_IVL); }
+            set { SetInt32Option(ZMQ_RECOVERY_IVL, value); }
+        }
+
+        public int SendBufferSize
+        {
+            get { return GetInt32Option(ZMQ_SNDBUF); }
+            set { SetInt32Option(ZMQ_SNDBUF, value); }
+        }
+
+        public int ReceiveBufferSize
+        {
+            get { return GetInt32Option(ZMQ_RCVBUF); }
+            set { SetInt32Option(ZMQ_RCVBUF, value); }
         }
 
         public int Linger
@@ -176,6 +336,158 @@ namespace SimpleZmq
             get { return GetInt32Option(ZMQ_LINGER); }
             set { SetInt32Option(ZMQ_LINGER, value); }
         }
+
+        public int ReconnectInterval
+        {
+            get { return GetInt32Option(ZMQ_RECONNECT_IVL); }
+            set { SetInt32Option(ZMQ_RECONNECT_IVL, value); }
+        }
+
+        public int MaxReconnectInterval
+        {
+            get { return GetInt32Option(ZMQ_RECONNECT_IVL_MAX); }
+            set { SetInt32Option(ZMQ_RECONNECT_IVL_MAX, value); }
+        }
+
+        public int BackLog
+        {
+            get { return GetInt32Option(ZMQ_BACKLOG); }
+            set { SetInt32Option(ZMQ_BACKLOG, value); }
+        }
+
+        public long MaxMessageSize
+        {
+            get { return GetLongOption(ZMQ_MAXMSGSIZE); }
+            set { SetLongOption(ZMQ_MAXMSGSIZE, value); }
+        }
+
+        public int MulticastHops
+        {
+            get { return GetInt32Option(ZMQ_MULTICAST_HOPS); }
+            set { SetInt32Option(ZMQ_MULTICAST_HOPS, value); }
+        }
+
+        public int ReceiveTimeOut
+        {
+            get { return GetInt32Option(ZMQ_RCVTIMEO); }
+            set { SetInt32Option(ZMQ_RCVTIMEO, value); }
+        }
+
+        public int SendTimeOut
+        {
+            get { return GetInt32Option(ZMQ_SNDTIMEO); }
+            set { SetInt32Option(ZMQ_SNDTIMEO, value); }
+        }
+
+        public bool IPv6Enabled
+        {
+            get { return GetInt32Option(ZMQ_IPV6) == 1; }
+            set { SetInt32Option(ZMQ_IPV6, value ? 1 : 0); }
+        }
+
+        public bool Immediate
+        {
+            get { return GetInt32Option(ZMQ_IMMEDIATE) == 1; }
+            set { SetInt32Option(ZMQ_IMMEDIATE, value ? 1 : 0); }
+        }
+
+        public string LastEndPoint
+        {
+            get { return GetStringOption(ZMQ_LAST_ENDPOINT); }
+        }
+
+        public int TcpKeepAlive
+        {
+            get { return GetInt32Option(ZMQ_TCP_KEEPALIVE); }
+            set { SetInt32Option(ZMQ_TCP_KEEPALIVE, value); }
+        }
+
+        public int TcpKeepAliveIdle
+        {
+            get { return GetInt32Option(ZMQ_TCP_KEEPALIVE_IDLE); }
+            set { SetInt32Option(ZMQ_TCP_KEEPALIVE_IDLE, value); }
+        }
+
+        public int TcpKeepAliveCnt
+        {
+            get { return GetInt32Option(ZMQ_TCP_KEEPALIVE_CNT); }
+            set { SetInt32Option(ZMQ_TCP_KEEPALIVE_CNT, value); }
+        }
+
+        public int TcpKeepAliveIntVl
+        {
+            get { return GetInt32Option(ZMQ_TCP_KEEPALIVE_INTVL); }
+            set { SetInt32Option(ZMQ_TCP_KEEPALIVE_INTVL, value); }
+        }
+
+        public SocketSecurityMechanism SecurityMechanism
+        {
+            get { return (SocketSecurityMechanism)GetInt32Option(ZMQ_MECHANISM); }
+            // TODO does it need a setter for ZMQ_MECHANISM?
+            set { SetInt32Option(ZMQ_MECHANISM, (int)value); }
+        }
+
+        public int PlainServer
+        {
+            get { return GetInt32Option(ZMQ_PLAIN_SERVER); }
+            set { SetInt32Option(ZMQ_PLAIN_SERVER, value); }
+        }
+
+        public string PlainUserName
+        {
+            get { return GetStringOption(ZMQ_PLAIN_USERNAME); }
+            set { SetStringOption(ZMQ_PLAIN_USERNAME, value); }
+        }
+
+        public string PlainPassword
+        {
+            get { return GetStringOption(ZMQ_PLAIN_PASSWORD); }
+            set { SetStringOption(ZMQ_PLAIN_PASSWORD, value); }
+        }
+
+        public byte[] CurvePublicKey
+        {
+            get { return GetBufferOption(ZMQ_CURVE_PUBLICKEY, 32); }
+            set { SetBufferOption(ZMQ_CURVE_PUBLICKEY, value, 32); }
+        }
+
+        public string CurvePublicKeyString
+        {
+            get { return GetStringOption(ZMQ_CURVE_PUBLICKEY, 41); }
+            set { SetStringOption(ZMQ_CURVE_PUBLICKEY, value, 41); }
+        }
+
+        public byte[] CurveSecretKey
+        {
+            get { return GetBufferOption(ZMQ_CURVE_SECRETKEY, 32); }
+            set { SetBufferOption(ZMQ_CURVE_SECRETKEY, value, 32); }
+        }
+
+        public string CurveSecretKeyString
+        {
+            get { return GetStringOption(ZMQ_CURVE_SECRETKEY, 41); }
+            set { SetStringOption(ZMQ_CURVE_SECRETKEY, value, 41); }
+        }
+
+        public byte[] CurveServerKey
+        {
+            get { return GetBufferOption(ZMQ_CURVE_SERVERKEY, 32); }
+            set { SetBufferOption(ZMQ_CURVE_SERVERKEY, value, 32); }
+        }
+
+        public string CurveServerKeyString
+        {
+            get { return GetStringOption(ZMQ_CURVE_SERVERKEY, 41); }
+            set { SetStringOption(ZMQ_CURVE_SERVERKEY, value, 41); }
+        }
+
+        public string ZAPDomain
+        {
+            get { return GetStringOption(ZMQ_ZAP_DOMAIN); }
+            // TODO do we need a setter for ZAPDomain?
+            set { SetStringOption(ZMQ_ZAP_DOMAIN, value); }
+        }
+
         #endregion
 
         public virtual void Dispose(bool isDisposing)
