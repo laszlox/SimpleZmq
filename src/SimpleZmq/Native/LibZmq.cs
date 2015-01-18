@@ -107,6 +107,8 @@ namespace SimpleZmq.Native
 
         // pre-created delegate instances so that we can pass zmq functions as delegates without allocating on the managed heap
         public static readonly Func<IntPtr, byte[], int, int, int> zmq_send_func = LibZmq.zmq_send;
+        public static readonly Func<IntPtr, int, IntPtr, int, int> zmq_setsockopt_func = LibZmq.zmq_setsockopt;
+        public static readonly Func<IntPtr, int, IntPtr, IntPtr, int> zmq_getsockopt_func = LibZmq.zmq_getsockopt;
         #endregion
     }
 }
