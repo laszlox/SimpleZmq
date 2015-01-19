@@ -64,6 +64,8 @@ namespace SimpleZmq
 
         private const int MaxBinaryOptionBufferSize = 255;
 
+        private const int SizeOfMsgT = 32;
+
         private struct NativeAllocatedMemory : IDisposable
         {
             public static NativeAllocatedMemory Create(int size)
@@ -80,9 +82,10 @@ namespace SimpleZmq
             }
         }
 
-        private readonly Action<string>     _logError;
-        private IntPtr                      _zmqSocketPtr;
-        private bool                        _disposed;
+        private readonly NativeAllocatedMemory  _msg;
+        private readonly Action<string>         _logError;
+        private IntPtr                          _zmqSocketPtr;
+        private bool                            _disposed;
 
         ~ZmqSocket()
         {
@@ -238,6 +241,7 @@ namespace SimpleZmq
             Argument.ExpectNonNull(logError, "logError");
 
             _logError = logError;
+            _msg = NativeAllocatedMemory.Create(SizeOfMsgT);
             _zmqSocketPtr = zmqSocketPtr;
         }
 
@@ -270,6 +274,29 @@ namespace SimpleZmq
             if (zmqError != null && zmqError.ShouldTryAgain) return false;
             Zmq.ThrowIfError(zmqError);
             return true;
+        }
+
+        /// <summary>
+        /// Receives a message frame from this socket.
+        /// </summary>
+        /// <param name="buffer">The buffer to copy the message content into.</param>
+        /// <param name="length">Out: the length of the received data.</param>
+        /// <param name="doNotWait">If true, the receive won't block if there is nothing to receive, but return null. Otherwise it blocks.</param>
+        /// <returns>The byte[] that contains the resulting message. If the input byte[] wasn't large enough, a new one is allocated and returned.</returns>
+        public byte[] Receive(byte[] buffer, out int length, bool doNotWait = false)
+        {
+            Zmq.ThrowIfError(LibZmq.zmq_msg_init(_msg.Pointer));
+
+            length = 0;
+            var zmqError = SocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_msg_recv_func, _msg.Pointer, _zmqSocketPtr, doNotWait ? ZMQ_DONTWAIT : 0));
+            if (zmqError != null && zmqError.ShouldTryAgain) return null;
+            Zmq.ThrowIfError(zmqError);
+
+            // TODO implement
+
+            Zmq.ThrowIfError(LibZmq.zmq_msg_close(_msg.Pointer));
+
+            return null;
         }
 
         #region Socket Option Properties
@@ -493,16 +520,20 @@ namespace SimpleZmq
         public virtual void Dispose(bool isDisposing)
         {
             if (_disposed) return;
-            if (_zmqSocketPtr == IntPtr.Zero) return;
 
-            ZmqError zmqError;
-            if ((zmqError = SocketError(LibZmq.zmq_close(_zmqSocketPtr))) != null)
+            if (_zmqSocketPtr != IntPtr.Zero)
             {
-                // We can't throw exception because we may be in a finally block.
-                _logError(String.Format("ZmqSocket.Dispose(): {0}", zmqError));
+                ZmqError zmqError;
+                if ((zmqError = SocketError(LibZmq.zmq_close(_zmqSocketPtr))) != null)
+                {
+                    // We can't throw exception because we may be in a finally block.
+                    _logError(String.Format("ZmqSocket.Dispose(): {0}", zmqError));
+                }
+                _zmqSocketPtr = IntPtr.Zero;
             }
 
-            _zmqSocketPtr = IntPtr.Zero;
+            _msg.Dispose();
+
             _disposed = true;
         }
 

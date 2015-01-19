@@ -103,10 +103,26 @@ namespace SimpleZmq.Native
         public static extern int zmq_getsockopt(IntPtr socket, int option_name, IntPtr option_value, IntPtr option_len);
 
         [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int zmq_msg_init(IntPtr msg);
+
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int zmq_msg_close(IntPtr msg);
+
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int zmq_msg_size(IntPtr msg);
+
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr zmq_msg_data(IntPtr msg);
+
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int zmq_msg_recv(IntPtr msg, IntPtr socket, int flags);
+
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
         public static extern int zmq_close(IntPtr socket);
 
         // pre-created delegate instances so that we can pass zmq functions as delegates without allocating on the managed heap
         public static readonly Func<IntPtr, byte[], int, int, int> zmq_send_func = LibZmq.zmq_send;
+        public static readonly Func<IntPtr, IntPtr, int, int> zmq_msg_recv_func = LibZmq.zmq_msg_recv;
         public static readonly Func<IntPtr, int, IntPtr, int, int> zmq_setsockopt_func = LibZmq.zmq_setsockopt;
         public static readonly Func<IntPtr, int, IntPtr, IntPtr, int> zmq_getsockopt_func = LibZmq.zmq_getsockopt;
         #endregion
