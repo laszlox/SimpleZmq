@@ -247,7 +247,7 @@ namespace SimpleZmq.Test
         }
 
         [TestMethod]
-        public void Socket_Connect_To_Bound_Socket_And_Send()
+        public void Socket_Connect_To_Bound_Socket_Then_Send_And_Receive()
         {
             using (var zmqContext = new ZmqContext())
             {
@@ -257,7 +257,13 @@ namespace SimpleZmq.Test
                     pushSocket.Bind("tcp://127.0.0.1:5555");
                     pullSocket.Connect("tcp://127.0.0.1:5555");
 
-                    pushSocket.Send(new byte[] { 1,2,3,4 }, 4);
+                    Assert.IsTrue(pushSocket.Send(new byte[] { 1,2,3,4 }, 4));
+                    var buffer = new byte[4];
+                    int receivedLength;
+                    var receivedBuffer = pullSocket.Receive(buffer, out receivedLength, doNotWait: true);
+                    Assert.AreSame(buffer, receivedBuffer);
+                    Assert.AreEqual(receivedLength, 4);
+                    CollectionAssert.AreEqual(receivedBuffer, new byte[] { 1,2,3,4 });
                 }
             }
         }

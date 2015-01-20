@@ -7,16 +7,26 @@ using System.Text;
 
 namespace SimpleZmq
 {
-    public class ZmqError
+    public struct ZmqError
     {
         private readonly int        _number;
         private readonly string     _description;
 
-        public ZmqError(int number)
+        private ZmqError(int number)
         {
             _number = number;
             var errStrPtr = LibZmq.zmq_strerror(number);
             _description = Marshal.PtrToStringAnsi(errStrPtr);
+        }
+
+        public static ZmqError Success()
+        {
+            return new ZmqError();
+        }
+
+        public static ZmqError FromErrNo(int number)
+        {
+            return new ZmqError(number);
         }
 
         public int Number
@@ -27,6 +37,16 @@ namespace SimpleZmq
         public string Description
         {
             get { return _description; }
+        }
+
+        public bool NoError
+        {
+            get { return _number == 0 && _description == null; }
+        }
+
+        public bool IsError
+        {
+            get { return !NoError; }
         }
 
         public bool WasInterrupted

@@ -59,7 +59,7 @@ namespace SimpleZmq
             if (_zmqContextPtr == IntPtr.Zero) return;
 
             ZmqError zmqError;
-            while ((zmqError = Zmq.Error(LibZmq.zmq_ctx_term(_zmqContextPtr))) != null)
+            while ((zmqError = Zmq.Error(LibZmq.zmq_ctx_term(_zmqContextPtr))).IsError)
             {
                 if (zmqError.Number != ErrNo.EAGAIN)
                 {

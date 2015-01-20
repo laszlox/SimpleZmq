@@ -36,37 +36,37 @@ namespace SimpleZmq
 
         public static ZmqError Error(int returnValue)
         {
-            if (returnValue >= 0) return null;
+            if (returnValue >= 0) return ZmqError.Success();
             if (returnValue == ErrorReturnValue)
             {
-                return new ZmqError(LibZmq.zmq_errno());
+                return ZmqError.FromErrNo(LibZmq.zmq_errno());
             }
             throw new ArgumentException(String.Format("returnValue can be either {0} or 0 or greater, but it was {1}.", ErrorReturnValue, returnValue));
         }
 
         public static ZmqError Error(IntPtr returnValue)
         {
-            if (returnValue != IntPtr.Zero) return null;
-            return new ZmqError(LibZmq.zmq_errno());
+            if (returnValue != IntPtr.Zero) return ZmqError.Success();
+            return ZmqError.FromErrNo(LibZmq.zmq_errno());
         }
 
         public static void ThrowIfError(ZmqError zmqError)
         {
-            if (zmqError == null) return;
+            if (zmqError.NoError) return;
             throw new ZmqException(zmqError);
         }
 
         public static int ThrowIfError(int returnValue)
         {
             var zmqError = Error(returnValue);
-            if (zmqError == null) return returnValue;
+            if (zmqError.NoError) return returnValue;
             throw new ZmqException(zmqError);
         }
 
         public static IntPtr ThrowIfError(IntPtr returnValue)
         {
             var zmqError = Error(returnValue);
-            if (zmqError == null) return returnValue;
+            if (zmqError.NoError) return returnValue;
             throw new ZmqException(zmqError);
         }
     }

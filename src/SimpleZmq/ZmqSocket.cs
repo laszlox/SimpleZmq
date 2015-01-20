@@ -92,20 +92,44 @@ namespace SimpleZmq
             Dispose(false);
         }
 
+        /// <summary>
+        /// Checks if the specified return value indicates an error, if so returns the <see cref="ZmqError"/> for it, but returns success for context-termination errors.
+        /// </summary>
+        /// <param name="returnValue">The return value to process.</param>
+        /// <returns>The <see cref="ZmqError"/> which can be either a real error or success.</returns>
+        /// <remarks>
+        /// It's useful when the return value is not important, it just indicates error or success, and we don't want to throw exceptions for errors (e.g. from a finalizer/Dispose()).
+        /// </remarks>
         private ZmqError SocketError(int returnValue)
         {
             var zmqError = Zmq.Error(returnValue);
-
             // we can safely ignore context-termination at socket operatons
-            if (zmqError == null || zmqError.ContextTerminated) return null;
+            if (zmqError.NoError || zmqError.ContextTerminated) return ZmqError.Success();
 
-            // otherwise keep the error
+            // it's a real error
             return zmqError;
         }
 
-        private void ThrowIfSocketError(int returnValue)
+        /// <summary>
+        /// Checks if the specified return value indicates an error, if so throws a <see cref="ZmqException"/>. Context-termination doesn't count as error, it just returns 0 for it, if <paramref="expectTryAgain"/> is true, EAGAIN means null return value.
+        /// </summary>
+        /// <param name="returnValue">The return value to process.</param>
+        /// <param name="expectTryAgain">Optional parameter. If it's true, EAGAIN errors don't count as errors, it just returns null to indicate it.</param>
+        /// <returns>The returns value or null if <paramref name="expectTryAgain"/> is true and the error was EAGAIN.</returns>
+        /// <remarks>
+        /// It's useful when we want to get back the return value in case of success, otherwise we want throw <see cref="ZmqException"/>.
+        /// </remarks>
+        private int? ThrowIfSocketError(int returnValue, bool expectTryAgain = false)
         {
-            Zmq.ThrowIfError(SocketError(returnValue));
+            var zmqError = Zmq.Error(returnValue);
+            if (zmqError.NoError) return returnValue;
+            // we can safely ignore context-termination at socket operatons
+            if (zmqError.ContextTerminated) return 0;
+            // ...and try-again (if expectTryAgain is true). The return value indicates that it should be retried.
+            if (expectTryAgain && zmqError.ShouldTryAgain) return null;
+
+            // it's a real error
+            throw new ZmqException(zmqError);
         }
 
         private void SetBufferOption(int optionType, byte[] value, int bufferSize = 0)
@@ -270,10 +294,10 @@ namespace SimpleZmq
         public bool Send(byte[] buffer, int length, bool doNotWait = false, bool hasMore = false)
         {
             int sendFlags = (doNotWait ? ZMQ_DONTWAIT : 0) | (hasMore ? ZMQ_SNDMORE : 0);
-            var zmqError = SocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_send_func, _zmqSocketPtr, buffer, length, sendFlags));
-            if (zmqError != null && zmqError.ShouldTryAgain) return false;
-            Zmq.ThrowIfError(zmqError);
-            return true;
+            return ThrowIfSocketError(
+                Zmq.RetryIfInterrupted(LibZmq.zmq_send_func, _zmqSocketPtr, buffer, length, sendFlags),
+                expectTryAgain: true
+            ) != null;
         }
 
         /// <summary>
@@ -286,17 +310,33 @@ namespace SimpleZmq
         public byte[] Receive(byte[] buffer, out int length, bool doNotWait = false)
         {
             Zmq.ThrowIfError(LibZmq.zmq_msg_init(_msg.Pointer));
+            try
+            {
+                var lengthOrRetry = ThrowIfSocketError(
+                    Zmq.RetryIfInterrupted(LibZmq.zmq_msg_recv_func, _msg.Pointer, _zmqSocketPtr, doNotWait ? ZMQ_DONTWAIT : 0),
+                    expectTryAgain: true
+                );
 
-            length = 0;
-            var zmqError = SocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_msg_recv_func, _msg.Pointer, _zmqSocketPtr, doNotWait ? ZMQ_DONTWAIT : 0));
-            if (zmqError != null && zmqError.ShouldTryAgain) return null;
-            Zmq.ThrowIfError(zmqError);
+                length = 0;
+                // if we should retry, just return null.
+                if (lengthOrRetry == null) return null;
+                length = lengthOrRetry.Value;
 
-            // TODO implement
+                // recreating the buffer if it's not large enough
+                if (buffer.Length < length)
+                {
+                    buffer = new byte[length];
+                }
 
-            Zmq.ThrowIfError(LibZmq.zmq_msg_close(_msg.Pointer));
+                // finally copying the content from the msg structure into the byte buffer
+                Marshal.Copy(_msg.Pointer, buffer, 0, length);
+            }
+            finally
+            {
+                Zmq.ThrowIfError(LibZmq.zmq_msg_close(_msg.Pointer));
+            }
 
-            return null;
+            return buffer;
         }
 
         #region Socket Option Properties
@@ -524,7 +564,7 @@ namespace SimpleZmq
             if (_zmqSocketPtr != IntPtr.Zero)
             {
                 ZmqError zmqError;
-                if ((zmqError = SocketError(LibZmq.zmq_close(_zmqSocketPtr))) != null)
+                if ((zmqError = SocketError(LibZmq.zmq_close(_zmqSocketPtr))).IsError)
                 {
                     // We can't throw exception because we may be in a finally block.
                     _logError(String.Format("ZmqSocket.Dispose(): {0}", zmqError));
