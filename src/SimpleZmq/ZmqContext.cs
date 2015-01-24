@@ -43,7 +43,7 @@ namespace SimpleZmq
             set { Zmq.ThrowIfError(LibZmq.zmq_ctx_set(_zmqContextPtr, ZMQ_IPV6, value ? 1 : 0)); }
         }
 
-        public ZmqSocket CreateSocket(SocketType socketType)
+        public ZmqSocket CreateSocket(ZmqSocketType socketType)
         {
             return new ZmqSocket(Zmq.ThrowIfError(LibZmq.zmq_socket(_zmqContextPtr, (int)socketType)), _logError);
         }
@@ -61,7 +61,7 @@ namespace SimpleZmq
             ZmqError zmqError;
             while ((zmqError = Zmq.Error(LibZmq.zmq_ctx_term(_zmqContextPtr))).IsError)
             {
-                if (zmqError.Number != ErrNo.EAGAIN)
+                if (zmqError.Number != ZmqErrNo.EAGAIN)
                 {
                     // it must be EFAULT, we can't do too much about it. We can't throw exception because we may be in a finally block.
                     _logError(String.Format("ZmqContext.Dispose(): {0}", zmqError));

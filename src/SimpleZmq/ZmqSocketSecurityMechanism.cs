@@ -5,7 +5,7 @@ using System.Text;
 
 namespace SimpleZmq
 {
-    public enum SocketSecurityMechanism
+    public enum ZmqSocketSecurityMechanism
     {
         Null = 0,
         Plain = 1,

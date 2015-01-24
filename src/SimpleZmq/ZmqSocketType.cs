@@ -5,7 +5,7 @@ using System.Text;
 
 namespace SimpleZmq
 {
-    public enum SocketType
+    public enum ZmqSocketType
     {
         Pair = 0,
         Pub = 1,

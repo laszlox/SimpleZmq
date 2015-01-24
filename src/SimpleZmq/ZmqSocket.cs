@@ -92,44 +92,21 @@ namespace SimpleZmq
             Dispose(false);
         }
 
-        /// <summary>
-        /// Checks if the specified return value indicates an error, if so returns the <see cref="ZmqError"/> for it, but returns success for context-termination errors.
-        /// </summary>
-        /// <param name="returnValue">The return value to process.</param>
-        /// <returns>The <see cref="ZmqError"/> which can be either a real error or success.</returns>
-        /// <remarks>
-        /// It's useful when the return value is not important, it just indicates error or success, and we don't want to throw exceptions for errors (e.g. from a finalizer/Dispose()).
-        /// </remarks>
-        private ZmqError SocketError(int returnValue)
+        #region Private option setting/getting
+        private NativeAllocatedMemory AllocateNativeMemoryForSizeBuffer(int valueBufferSize)
         {
-            var zmqError = Zmq.Error(returnValue);
-            // we can safely ignore context-termination at socket operatons
-            if (zmqError.NoError || zmqError.ContextTerminated) return ZmqError.Success();
-
-            // it's a real error
-            return zmqError;
-        }
-
-        /// <summary>
-        /// Checks if the specified return value indicates an error, if so throws a <see cref="ZmqException"/>. Context-termination doesn't count as error, it just returns 0 for it, if <paramref="expectTryAgain"/> is true, EAGAIN means null return value.
-        /// </summary>
-        /// <param name="returnValue">The return value to process.</param>
-        /// <param name="expectTryAgain">Optional parameter. If it's true, EAGAIN errors don't count as errors, it just returns null to indicate it.</param>
-        /// <returns>The returns value or null if <paramref name="expectTryAgain"/> is true and the error was EAGAIN.</returns>
-        /// <remarks>
-        /// It's useful when we want to get back the return value in case of success, otherwise we want throw <see cref="ZmqException"/>.
-        /// </remarks>
-        private int? ThrowIfSocketError(int returnValue, bool expectTryAgain = false)
-        {
-            var zmqError = Zmq.Error(returnValue);
-            if (zmqError.NoError) return returnValue;
-            // we can safely ignore context-termination at socket operatons
-            if (zmqError.ContextTerminated) return 0;
-            // ...and try-again (if expectTryAgain is true). The return value indicates that it should be retried.
-            if (expectTryAgain && zmqError.ShouldTryAgain) return null;
-
-            // it's a real error
-            throw new ZmqException(zmqError);
+            var sizeBuffer = NativeAllocatedMemory.Create(IntPtr.Size);
+            if (sizeBuffer.Size == 4)
+            {
+                // 32 bit size
+                Marshal.WriteInt32(sizeBuffer.Pointer, valueBufferSize);
+            }
+            else
+            {
+                // 64 bit size
+                Marshal.WriteInt64(sizeBuffer.Pointer, valueBufferSize);
+            }
+            return sizeBuffer;
         }
 
         private void SetBufferOption(int optionType, byte[] value, int bufferSize = 0)
@@ -140,19 +117,16 @@ namespace SimpleZmq
             using (var valueBuffer = NativeAllocatedMemory.Create(value.Length))
             {
                 Marshal.Copy(value, 0, valueBuffer.Pointer, value.Length);
-                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
+                Zmq.ThrowIfError_IgnoreContextTerminated(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
             }
         }
 
         private byte[] GetBufferOption(int optionType, int bufferSize = 0)
         {
-            using (var sizeBuffer = NativeAllocatedMemory.Create(IntPtr.Size))
             using (var valueBuffer = NativeAllocatedMemory.Create(bufferSize == 0 ? MaxBinaryOptionBufferSize : bufferSize))
+            using (var sizeBuffer = AllocateNativeMemoryForSizeBuffer(valueBuffer.Size))
             {
-                // TODO is it 32 for 64bit?
-                Marshal.WriteInt32(sizeBuffer.Pointer, valueBuffer.Size);
-
-                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
+                Zmq.ThrowIfError_IgnoreContextTerminated(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
                 // TODO heap-allocation: it's OK, because it can happen only at getting binary option values, which are rare and definitely not typical at the message sending/receiving.
                 var value = new byte[Marshal.ReadInt32(sizeBuffer.Pointer)];
                 Marshal.Copy(valueBuffer.Pointer, value, 0, value.Length);
@@ -165,19 +139,16 @@ namespace SimpleZmq
             using (var valueBuffer = NativeAllocatedMemory.Create(Marshal.SizeOf(typeof(Int32))))
             {
                 Marshal.WriteInt32(valueBuffer.Pointer, value);
-                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
+                Zmq.ThrowIfError_IgnoreContextTerminated(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
             }
         }
 
         private int GetInt32Option(int optionType)
         {
-            using (var sizeBuffer = NativeAllocatedMemory.Create(IntPtr.Size))
             using (var valueBuffer = NativeAllocatedMemory.Create(Marshal.SizeOf(typeof(Int32))))
+            using (var sizeBuffer = AllocateNativeMemoryForSizeBuffer(valueBuffer.Size))
             {
-                // TODO is it 32 for 64bit?
-                Marshal.WriteInt32(sizeBuffer.Pointer, valueBuffer.Size);
-
-                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
+                Zmq.ThrowIfError_IgnoreContextTerminated(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
                 return Marshal.ReadInt32(valueBuffer.Pointer);
             }
         }
@@ -187,19 +158,16 @@ namespace SimpleZmq
             using (var valueBuffer = NativeAllocatedMemory.Create(Marshal.SizeOf(typeof(long))))
             {
                 Marshal.WriteInt64(valueBuffer.Pointer, value);
-                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
+                Zmq.ThrowIfError_IgnoreContextTerminated(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
             }
         }
 
         private long GetLongOption(int optionType)
         {
-            using (var sizeBuffer = NativeAllocatedMemory.Create(IntPtr.Size))
             using (var valueBuffer = NativeAllocatedMemory.Create(Marshal.SizeOf(typeof(long))))
+            using (var sizeBuffer = AllocateNativeMemoryForSizeBuffer(valueBuffer.Size))
             {
-                // TODO is it 32 for 64bit?
-                Marshal.WriteInt32(sizeBuffer.Pointer, valueBuffer.Size);
-
-                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
+                Zmq.ThrowIfError_IgnoreContextTerminated(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
                 return Marshal.ReadInt64(valueBuffer.Pointer);
             }
         }
@@ -209,19 +177,16 @@ namespace SimpleZmq
             using (var valueBuffer = NativeAllocatedMemory.Create(Marshal.SizeOf(typeof(ulong))))
             {
                 Marshal.WriteInt64(valueBuffer.Pointer, unchecked(Convert.ToInt64(value)));
-                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
+                Zmq.ThrowIfError_IgnoreContextTerminated(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
             }
         }
 
         private ulong GetUlongOption(int optionType)
         {
-            using (var sizeBuffer = NativeAllocatedMemory.Create(IntPtr.Size))
             using (var valueBuffer = NativeAllocatedMemory.Create(Marshal.SizeOf(typeof(ulong))))
+            using (var sizeBuffer = AllocateNativeMemoryForSizeBuffer(valueBuffer.Size))
             {
-                // TODO is it 32 for 64bit?
-                Marshal.WriteInt32(sizeBuffer.Pointer, valueBuffer.Size);
-
-                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
+                Zmq.ThrowIfError_IgnoreContextTerminated(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
                 return unchecked(Convert.ToUInt64(Marshal.ReadInt64(valueBuffer.Pointer)));
             }
         }
@@ -230,7 +195,7 @@ namespace SimpleZmq
         {
             if (value == null)
             {
-                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, IntPtr.Zero, 0));
+                Zmq.ThrowIfError_IgnoreContextTerminated(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, IntPtr.Zero, 0));
             }
             else
             {
@@ -241,23 +206,21 @@ namespace SimpleZmq
                 using (var valueBuffer = NativeAllocatedMemory.Create(encodedString.Length))
                 {
                     Marshal.Copy(encodedString, 0, valueBuffer.Pointer, encodedString.Length);
-                    ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
+                    Zmq.ThrowIfError_IgnoreContextTerminated(Zmq.RetryIfInterrupted(LibZmq.zmq_setsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, valueBuffer.Size));
                 }
             }
         }
 
         private string GetStringOption(int optionType, int bufferSize = 0)
         {
-            using (var sizeBuffer = NativeAllocatedMemory.Create(IntPtr.Size))
             using (var valueBuffer = NativeAllocatedMemory.Create(bufferSize == 0 ? MaxBinaryOptionBufferSize : bufferSize))
+            using (var sizeBuffer = AllocateNativeMemoryForSizeBuffer(valueBuffer.Size))
             {
-                // TODO is it 32 for 64bit?
-                Marshal.WriteInt32(sizeBuffer.Pointer, valueBuffer.Size);
-
-                ThrowIfSocketError(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
+                Zmq.ThrowIfError_IgnoreContextTerminated(Zmq.RetryIfInterrupted(LibZmq.zmq_getsockopt_func, _zmqSocketPtr, optionType, valueBuffer.Pointer, sizeBuffer.Pointer));
                 return Marshal.PtrToStringAnsi(valueBuffer.Pointer);
             }
         }
+        #endregion
 
         internal ZmqSocket(IntPtr zmqSocketPtr, Action<string> logError)
         {
@@ -269,18 +232,23 @@ namespace SimpleZmq
             _zmqSocketPtr = zmqSocketPtr;
         }
 
+        internal IntPtr NativePtr
+        {
+            get { return _zmqSocketPtr; }
+        }
+
         public void Bind(string endPoint)
         {
             Argument.ExpectNonNullAndWhiteSpace(endPoint, "endPoint");
 
-            ThrowIfSocketError(LibZmq.zmq_bind(_zmqSocketPtr, endPoint));
+            Zmq.ThrowIfError_IgnoreContextTerminated(LibZmq.zmq_bind(_zmqSocketPtr, endPoint));
         }
 
         public void Connect(string endPoint)
         {
             Argument.ExpectNonNullAndWhiteSpace(endPoint, "endPoint");
 
-            ThrowIfSocketError(LibZmq.zmq_connect(_zmqSocketPtr, endPoint));
+            Zmq.ThrowIfError_IgnoreContextTerminated(LibZmq.zmq_connect(_zmqSocketPtr, endPoint));
         }
 
         /// <summary>
@@ -294,7 +262,7 @@ namespace SimpleZmq
         public bool Send(byte[] buffer, int length, bool doNotWait = false, bool hasMore = false)
         {
             int sendFlags = (doNotWait ? ZMQ_DONTWAIT : 0) | (hasMore ? ZMQ_SNDMORE : 0);
-            return ThrowIfSocketError(
+            return Zmq.ThrowIfError_IgnoreContextTerminated(
                 Zmq.RetryIfInterrupted(LibZmq.zmq_send_func, _zmqSocketPtr, buffer, length, sendFlags),
                 expectTryAgain: true
             ) != null;
@@ -312,7 +280,7 @@ namespace SimpleZmq
             Zmq.ThrowIfError(LibZmq.zmq_msg_init(_msg.Pointer));
             try
             {
-                var lengthOrRetry = ThrowIfSocketError(
+                var lengthOrRetry = Zmq.ThrowIfError_IgnoreContextTerminated(
                     Zmq.RetryIfInterrupted(LibZmq.zmq_msg_recv_func, _msg.Pointer, _zmqSocketPtr, doNotWait ? ZMQ_DONTWAIT : 0),
                     expectTryAgain: true
                 );
@@ -340,9 +308,9 @@ namespace SimpleZmq
         }
 
         #region Socket Option Properties
-        public SocketType SocketType
+        public ZmqSocketType SocketType
         {
-            get { return (SocketType)GetInt32Option(ZMQ_TYPE); }
+            get { return (ZmqSocketType)GetInt32Option(ZMQ_TYPE); }
         }
 
         public bool HasMoreToReceive
@@ -487,9 +455,9 @@ namespace SimpleZmq
             set { SetInt32Option(ZMQ_TCP_KEEPALIVE_INTVL, value); }
         }
 
-        public SocketSecurityMechanism SecurityMechanism
+        public ZmqSocketSecurityMechanism SecurityMechanism
         {
-            get { return (SocketSecurityMechanism)GetInt32Option(ZMQ_MECHANISM); }
+            get { return (ZmqSocketSecurityMechanism)GetInt32Option(ZMQ_MECHANISM); }
             // TODO does it need a setter for ZMQ_MECHANISM?
             set { SetInt32Option(ZMQ_MECHANISM, (int)value); }
         }
@@ -564,7 +532,7 @@ namespace SimpleZmq
             if (_zmqSocketPtr != IntPtr.Zero)
             {
                 ZmqError zmqError;
-                if ((zmqError = SocketError(LibZmq.zmq_close(_zmqSocketPtr))).IsError)
+                if ((zmqError = Zmq.Error(LibZmq.zmq_close(_zmqSocketPtr)).IgnoreContextTerminated()).IsError)
                 {
                     // We can't throw exception because we may be in a finally block.
                     _logError(String.Format("ZmqSocket.Dispose(): {0}", zmqError));

@@ -15,7 +15,7 @@ namespace SimpleZmq.Test
         {
             using (var zmqContext = new ZmqContext())
             {
-                using (ZmqSocket socket = zmqContext.CreateSocket(SocketType.Push))
+                using (ZmqSocket socket = zmqContext.CreateSocket(ZmqSocketType.Push))
                 {
                     ExceptionAssert.Throws<ArgumentNullException>(() => socket.Bind(null));
                 }
@@ -27,7 +27,7 @@ namespace SimpleZmq.Test
         {
             using (var zmqContext = new ZmqContext())
             {
-                using (ZmqSocket socket = zmqContext.CreateSocket(SocketType.Push))
+                using (ZmqSocket socket = zmqContext.CreateSocket(ZmqSocketType.Push))
                 {
                     ExceptionAssert.Throws<ArgumentException>(() => socket.Bind(""));
                 }
@@ -39,7 +39,7 @@ namespace SimpleZmq.Test
         {
             using (var zmqContext = new ZmqContext())
             {
-                using (ZmqSocket socket = zmqContext.CreateSocket(SocketType.Push))
+                using (ZmqSocket socket = zmqContext.CreateSocket(ZmqSocketType.Push))
                 {
                     ExceptionAssert.Throws<ArgumentException>(() => socket.Bind("    "));
                 }
@@ -51,7 +51,7 @@ namespace SimpleZmq.Test
         {
             using (var zmqContext = new ZmqContext())
             {
-                using (ZmqSocket socket = zmqContext.CreateSocket(SocketType.Push))
+                using (ZmqSocket socket = zmqContext.CreateSocket(ZmqSocketType.Push))
                 {
                     ExceptionAssert.Throws<ZmqException>(() => socket.Bind("invalid://test"), "Protocol not supported (135)");
                 }
@@ -63,9 +63,9 @@ namespace SimpleZmq.Test
         {
             using (var zmqContext = new ZmqContext())
             {
-                using (ZmqSocket socket = zmqContext.CreateSocket(SocketType.Push))
+                using (ZmqSocket socket = zmqContext.CreateSocket(ZmqSocketType.Push))
                 {
-                    Assert.AreEqual(socket.SocketType, SocketType.Push);
+                    Assert.AreEqual(socket.SocketType, ZmqSocketType.Push);
                     Assert.IsFalse(socket.HasMoreToReceive);
 
                     Assert.AreEqual(socket.SendHWM, 1000);
@@ -200,7 +200,7 @@ namespace SimpleZmq.Test
                     socket.TcpKeepAliveIntVl = 10;
                     Assert.AreEqual(socket.TcpKeepAliveIntVl, 10);
 
-                    Assert.AreEqual(socket.SecurityMechanism, SocketSecurityMechanism.Null);
+                    Assert.AreEqual(socket.SecurityMechanism, ZmqSocketSecurityMechanism.Null);
                     // These don't work. Not sure why, maybe it's read-only or needs some setup for security?
                     //socket.SecurityMechanism = SocketSecurityMechanism.Plain;
                     //Assert.AreEqual(socket.SecurityMechanism, SocketSecurityMechanism.Plain);
@@ -251,8 +251,8 @@ namespace SimpleZmq.Test
         {
             using (var zmqContext = new ZmqContext())
             {
-                using (ZmqSocket pushSocket = zmqContext.CreateSocket(SocketType.Push))
-                using (ZmqSocket pullSocket = zmqContext.CreateSocket(SocketType.Pull))
+                using (ZmqSocket pushSocket = zmqContext.CreateSocket(ZmqSocketType.Push))
+                using (ZmqSocket pullSocket = zmqContext.CreateSocket(ZmqSocketType.Pull))
                 {
                     pushSocket.Bind("tcp://127.0.0.1:5555");
                     pullSocket.Connect("tcp://127.0.0.1:5555");
@@ -260,7 +260,8 @@ namespace SimpleZmq.Test
                     Assert.IsTrue(pushSocket.Send(new byte[] { 1,2,3,4 }, 4));
                     var buffer = new byte[4];
                     int receivedLength;
-                    var receivedBuffer = pullSocket.Receive(buffer, out receivedLength, doNotWait: true);
+                    var receivedBuffer = pullSocket.Receive(buffer, out receivedLength);
+                    Assert.IsNotNull(receivedBuffer);
                     Assert.AreSame(buffer, receivedBuffer);
                     Assert.AreEqual(receivedLength, 4);
                     CollectionAssert.AreEqual(receivedBuffer, new byte[] { 1,2,3,4 });

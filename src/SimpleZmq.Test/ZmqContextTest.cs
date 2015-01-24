@@ -31,7 +31,7 @@ namespace SimpleZmq.Test
         {
             using (var zmqContext = new ZmqContext())
             {
-                using (ZmqSocket pushSocket = zmqContext.CreateSocket(SocketType.Push), pullSocket = zmqContext.CreateSocket(SocketType.Pull))
+                using (ZmqSocket pushSocket = zmqContext.CreateSocket(ZmqSocketType.Push), pullSocket = zmqContext.CreateSocket(ZmqSocketType.Pull))
                 {
                     pushSocket.Bind("inproc://test");
                     pullSocket.Connect("inproc://test");

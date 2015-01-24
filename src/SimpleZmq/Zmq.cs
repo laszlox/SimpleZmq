@@ -20,7 +20,7 @@ namespace SimpleZmq
             do
             {
                 returnValue = function(arg1, arg2, arg3);
-            } while (returnValue == -1 && LibZmq.zmq_errno() == ErrNo.EINTR);
+            } while (returnValue == -1 && LibZmq.zmq_errno() == ZmqErrNo.EINTR);
             return returnValue;
         }
 
@@ -30,7 +30,7 @@ namespace SimpleZmq
             do
             {
                 returnValue = function(arg1, arg2, arg3, arg4);
-            } while (returnValue == -1 && LibZmq.zmq_errno() == ErrNo.EINTR);
+            } while (returnValue == -1 && LibZmq.zmq_errno() == ZmqErrNo.EINTR);
             return returnValue;
         }
 
@@ -67,6 +67,47 @@ namespace SimpleZmq
         {
             var zmqError = Error(returnValue);
             if (zmqError.NoError) return returnValue;
+            throw new ZmqException(zmqError);
+        }
+
+        /// <summary>
+        /// Checks if the specified return value indicates an error, if so throws a <see cref="ZmqException"/>. Context-termination doesn't count as error, it just returns 0 for it.
+        /// </summary>
+        /// <param name="returnValue">The return value to process.</param>
+        /// <returns>The return value.</returns>
+        /// <remarks>
+        /// It's useful when we want to get back the return value in case of success, otherwise we want throw <see cref="ZmqException"/>.
+        /// </remarks>
+        public static int ThrowIfError_IgnoreContextTerminated(int returnValue)
+        {
+            var zmqError = Zmq.Error(returnValue);
+            if (zmqError.NoError) return returnValue;
+            // we can safely ignore context-termination at socket operatons
+            if (zmqError.ContextTerminated) return 0;
+
+            // it's a real error
+            throw new ZmqException(zmqError);
+        }
+
+        /// <summary>
+        /// Checks if the specified return value indicates an error, if so throws a <see cref="ZmqException"/>. Context-termination doesn't count as error, it just returns 0 for it, if <paramref="expectTryAgain"/> is true, EAGAIN means null return value.
+        /// </summary>
+        /// <param name="returnValue">The return value to process.</param>
+        /// <param name="expectTryAgain">Optional parameter. If it's true, EAGAIN errors don't count as errors, it just returns null to indicate it.</param>
+        /// <returns>The return value or null if <paramref name="expectTryAgain"/> is true and the error was EAGAIN.</returns>
+        /// <remarks>
+        /// It's useful when we want to get back the return value in case of success, otherwise we want throw <see cref="ZmqException"/>.
+        /// </remarks>
+        public static int? ThrowIfError_IgnoreContextTerminated(int returnValue, bool expectTryAgain = false)
+        {
+            var zmqError = Zmq.Error(returnValue);
+            if (zmqError.NoError) return returnValue;
+            // we can safely ignore context-termination at socket operatons
+            if (zmqError.ContextTerminated) return 0;
+            // ...and try-again (if expectTryAgain is true). The return value indicates that it should be retried.
+            if (expectTryAgain && zmqError.ShouldTryAgain) return null;
+
+            // it's a real error
             throw new ZmqException(zmqError);
         }
     }

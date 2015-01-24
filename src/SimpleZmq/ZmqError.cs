@@ -19,6 +19,11 @@ namespace SimpleZmq
             _description = Marshal.PtrToStringAnsi(errStrPtr);
         }
 
+        public ZmqError IgnoreContextTerminated()
+        {
+            return IsError && ContextTerminated ? ZmqError.Success() : this;
+        }
+
         public static ZmqError Success()
         {
             return new ZmqError();
@@ -51,17 +56,17 @@ namespace SimpleZmq
 
         public bool WasInterrupted
         {
-            get { return _number == ErrNo.EINTR; }
+            get { return _number == ZmqErrNo.EINTR; }
         }
 
         public bool ShouldTryAgain
         {
-            get { return _number == ErrNo.EAGAIN; }
+            get { return _number == ZmqErrNo.EAGAIN; }
         }
 
         public bool ContextTerminated
         {
-            get { return _number == ErrNo.ETERM; }
+            get { return _number == ZmqErrNo.ETERM; }
         }
 
         public override string ToString()

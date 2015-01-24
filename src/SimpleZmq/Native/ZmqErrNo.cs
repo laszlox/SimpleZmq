@@ -5,7 +5,7 @@ using System.Text;
 
 namespace SimpleZmq.Native
 {
-    public static class ErrNo
+    public static class ZmqErrNo
     {
         public const int ZMQ_HAUSNUMERO = 156384712;
 
