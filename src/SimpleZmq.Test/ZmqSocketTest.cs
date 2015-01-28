@@ -4,6 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SimpleZmq.Test
 {
@@ -265,6 +267,75 @@ namespace SimpleZmq.Test
                     Assert.AreSame(buffer, receivedBuffer);
                     Assert.AreEqual(receivedLength, 4);
                     CollectionAssert.AreEqual(receivedBuffer, new byte[] { 1,2,3,4 });
+                }
+            }
+        }
+
+        [TestMethod]
+        public void Pub_Socket_Sends_To_Multiple_Subscribers()
+        {
+            using (var zmqPubContext = new ZmqContext())
+            using (var zmqSubContext1 = new ZmqContext())
+            using (var zmqSubContext2 = new ZmqContext())
+            {
+                using (var pubSocket = zmqPubContext.CreateSocket(ZmqSocketType.Pub))
+                {
+                    pubSocket.Bind("tcp://127.0.0.1:5555");
+
+                    Action<byte[]> subscriberPolling = topic =>
+                    {
+                        using (var subSocket = zmqSubContext1.CreateSocket(ZmqSocketType.Sub))
+                        {
+                            subSocket.Connect("tcp://127.0.0.1:5555");
+                            subSocket.Subscribe(topic);
+
+                            int numberOfExpectedMessages = 10;
+
+                            var poller = new ZmqPoller(
+                                new[] { subSocket },
+                                s =>
+                                {
+                                    var buffer = new byte[10];
+                                    int receivedLength;
+                                    var receivedBuffer = s.Receive(buffer, out receivedLength, doNotWait: true);
+                                    Assert.IsNotNull(receivedBuffer);
+                                    Assert.AreSame(buffer, receivedBuffer);
+                                    Assert.AreEqual(receivedLength, 10);
+                                    for (int i = 0; i < topic.Length; i++)
+                                    {
+                                        Assert.AreEqual(receivedBuffer[i], topic[i]);
+                                    }
+                                    numberOfExpectedMessages--;
+                                }
+                            );
+
+                            while (numberOfExpectedMessages > 0)
+                            {
+                                poller.Poll(500);
+                            }
+                        }
+                    };
+
+                    var subscriberToAll = Task.Run(() => subscriberPolling(new byte[0]));
+                    var subscriber1 = Task.Run(() => subscriberPolling(new byte[] { 1 }));
+                    var subscriber2 = Task.Run(() => subscriberPolling(new byte[] { 2 }));
+                    var subscribers = new[] { subscriberToAll, subscriber1, subscriber2 };
+
+                    Thread.Sleep(2000);  // so that it's more likely that subscribers are receiving
+
+                    var message = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+                    int numberOfSentMessages = 0;
+                    while (subscribers.Any(s => !s.IsCompleted))
+                    {
+                        Assert.IsTrue(pubSocket.Send(message, message.Length));
+                        message[0] = (byte)((message[0] + 1) % 10);
+                        message[1] = (byte)((message[0] * 2) % 20);
+                        numberOfSentMessages++;
+                    }
+
+                    Task.WaitAll(subscribers);
+
+                    Console.WriteLine("Number of sent messasge: {0}", numberOfSentMessages);
                 }
             }
         }

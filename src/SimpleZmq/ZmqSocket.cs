@@ -82,6 +82,8 @@ namespace SimpleZmq
             }
         }
 
+        private static readonly byte[]          _allSubscription = new byte[0];
+
         private readonly NativeAllocatedMemory  _msg;
         private readonly Action<string>         _logError;
         private IntPtr                          _zmqSocketPtr;
@@ -249,6 +251,30 @@ namespace SimpleZmq
             Argument.ExpectNonNullAndWhiteSpace(endPoint, "endPoint");
 
             Zmq.ThrowIfError_IgnoreContextTerminated(LibZmq.zmq_connect(_zmqSocketPtr, endPoint));
+        }
+
+        public void Subscribe(byte[] messagePrefix)
+        {
+            Argument.ExpectNonNull(messagePrefix, "messagePrefix");
+
+            SetBufferOption(ZMQ_SUBSCRIBE, messagePrefix);
+        }
+
+        public void SubscribeToAll()
+        {
+            SetBufferOption(ZMQ_SUBSCRIBE, _allSubscription);
+        }
+
+        public void Unsubscribe(byte[] messagePrefix)
+        {
+            Argument.ExpectNonNull(messagePrefix, "messagePrefix");
+
+            SetBufferOption(ZMQ_UNSUBSCRIBE, messagePrefix);
+        }
+
+        public void UnsubscribeFromAll()
+        {
+            SetBufferOption(ZMQ_UNSUBSCRIBE, _allSubscription);
         }
 
         /// <summary>
