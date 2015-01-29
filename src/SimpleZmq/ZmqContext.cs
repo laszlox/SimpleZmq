@@ -45,7 +45,7 @@ namespace SimpleZmq
 
         public ZmqSocket CreateSocket(ZmqSocketType socketType)
         {
-            return new ZmqSocket(Zmq.ThrowIfError(LibZmq.zmq_socket(_zmqContextPtr, (int)socketType)), _logError);
+            return new ZmqSocket(this, Zmq.ThrowIfError(LibZmq.zmq_socket(_zmqContextPtr, (int)socketType)), _logError);
         }
 
         ~ZmqContext()

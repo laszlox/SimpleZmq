@@ -291,23 +291,25 @@ namespace SimpleZmq.Test
 
                             int numberOfExpectedMessages = 10;
 
-                            var poller = new ZmqPoller(
-                                new[] { subSocket },
-                                s =>
-                                {
-                                    var buffer = new byte[10];
-                                    int receivedLength;
-                                    var receivedBuffer = s.Receive(buffer, out receivedLength, doNotWait: true);
-                                    Assert.IsNotNull(receivedBuffer);
-                                    Assert.AreSame(buffer, receivedBuffer);
-                                    Assert.AreEqual(receivedLength, 10);
-                                    for (int i = 0; i < topic.Length; i++)
+                            var poller = ZmqPoller.New()
+                                .With(
+                                    subSocket,
+                                    s =>
                                     {
-                                        Assert.AreEqual(receivedBuffer[i], topic[i]);
+                                        var buffer = new byte[10];
+                                        int receivedLength;
+                                        var receivedBuffer = s.Receive(buffer, out receivedLength, doNotWait: true);
+                                        Assert.IsNotNull(receivedBuffer);
+                                        Assert.AreSame(buffer, receivedBuffer);
+                                        Assert.AreEqual(receivedLength, 10);
+                                        for (int i = 0; i < topic.Length; i++)
+                                        {
+                                            Assert.AreEqual(receivedBuffer[i], topic[i]);
+                                        }
+                                        numberOfExpectedMessages--;
                                     }
-                                    numberOfExpectedMessages--;
-                                }
-                            );
+                                 )
+                                .Build();
 
                             while (numberOfExpectedMessages > 0)
                             {

@@ -84,6 +84,7 @@ namespace SimpleZmq
 
         private static readonly byte[]          _allSubscription = new byte[0];
 
+        private readonly ZmqContext             _zmqContext;
         private readonly NativeAllocatedMemory  _msg;
         private readonly Action<string>         _logError;
         private IntPtr                          _zmqSocketPtr;
@@ -224,11 +225,13 @@ namespace SimpleZmq
         }
         #endregion
 
-        internal ZmqSocket(IntPtr zmqSocketPtr, Action<string> logError)
+        internal ZmqSocket(ZmqContext zmqContext, IntPtr zmqSocketPtr, Action<string> logError)
         {
+            Argument.ExpectNonNull(zmqContext, "zmqContext");
             Argument.ExpectNonZero(zmqSocketPtr, "zmqSocketPtr");
             Argument.ExpectNonNull(logError, "logError");
 
+            _zmqContext = zmqContext;
             _logError = logError;
             _msg = NativeAllocatedMemory.Create(SizeOfMsgT);
             _zmqSocketPtr = zmqSocketPtr;
@@ -237,6 +240,11 @@ namespace SimpleZmq
         internal IntPtr NativePtr
         {
             get { return _zmqSocketPtr; }
+        }
+
+        public ZmqContext Context
+        {
+            get { return _zmqContext; }
         }
 
         public void Bind(string endPoint)
@@ -275,6 +283,11 @@ namespace SimpleZmq
         public void UnsubscribeFromAll()
         {
             SetBufferOption(ZMQ_UNSUBSCRIBE, _allSubscription);
+        }
+
+        public ZmqMonitorSocket Monitor(ZmqSocketMonitorEvent eventsToMonitor = ZmqSocketMonitorEvent.All)
+        {
+            return new ZmqMonitorSocket(this, eventsToMonitor, _logError);
         }
 
         /// <summary>

@@ -12,21 +12,83 @@ namespace SimpleZmq
         private const int ZMQ_POLLOUT = 2;
         private const int ZMQ_POLLERR = 4;
 
-        private readonly Action<ZmqSocket> _handleReceive;
-        private readonly Action<ZmqSocket> _handleSend;
-        private readonly ZmqSocket[]       _sockets;
-        private readonly ZmqPollItem[]        _pollItems;
-
-        public ZmqPoller(ZmqSocket[] socketsToPoll, Action<ZmqSocket> handleReceive, Action<ZmqSocket> handleSend = null)
+        private struct ZmqPollItemWithHandlers
         {
-            _handleReceive = handleReceive;
-            _handleSend = handleSend;
-            _sockets = socketsToPoll;
-            _pollItems = new ZmqPollItem[socketsToPoll.Length];
-            for (int i = 0; i < socketsToPoll.Length; i++)
+            private readonly ZmqSocket          _zmqSocket;
+            private readonly Action<ZmqSocket>  _handleReceive;
+            private readonly Action<ZmqSocket>  _handleSend;
+
+            public ZmqPollItemWithHandlers(ZmqSocket zmqSocket, Action<ZmqSocket> handleReceive, Action<ZmqSocket> handleSend = null)
             {
-                _pollItems[i] = new ZmqPollItem { Socket = socketsToPoll[i].NativePtr, Events = ZMQ_POLLIN | ZMQ_POLLOUT };
+                _zmqSocket = zmqSocket;
+                _handleReceive = handleReceive;
+                _handleSend = handleSend;
             }
+
+            public ZmqSocket ZmqSocket
+            {
+                get { return _zmqSocket; }
+            }
+
+            public Action<ZmqSocket> HandleReceive
+            {
+                get { return _handleReceive; }
+            }
+
+            public Action<ZmqSocket> HandleSend
+            {
+                get { return _handleSend; }
+            }
+        }
+
+        public class ZmqPollerBuilder
+        {
+            private List<ZmqPollItemWithHandlers> _pollItemsWithHandlers = new List<ZmqPollItemWithHandlers>();
+
+            public ZmqPollerBuilder With(ZmqSocket[] zmqSockets, Action<ZmqSocket> handleReceive, Action<ZmqSocket> handleSend = null)
+            {
+                if (_pollItemsWithHandlers == null) throw new InvalidOperationException("ZmqPollerBuilder has already built a poller.");
+                for (int i = 0; i < zmqSockets.Length; i++)
+                {
+                    _pollItemsWithHandlers.Add(new ZmqPollItemWithHandlers(zmqSockets[i], handleReceive, handleSend));
+                }
+                return this;
+            }
+
+            public ZmqPollerBuilder With(ZmqSocket zmqSocket, Action<ZmqSocket> handleReceive, Action<ZmqSocket> handleSend = null)
+            {
+                if (_pollItemsWithHandlers == null) throw new InvalidOperationException("ZmqPollerBuilder has already built a poller.");
+                _pollItemsWithHandlers.Add(new ZmqPollItemWithHandlers(zmqSocket, handleReceive, handleSend));
+                return this;
+            }
+
+            public ZmqPoller Build()
+            {
+                var pollItemsWithHandlers = _pollItemsWithHandlers;
+                _pollItemsWithHandlers = null;
+                return new ZmqPoller(pollItemsWithHandlers.ToArray());
+            }
+        }
+
+
+        private readonly ZmqPollItemWithHandlers[] _pollItemsWithHandlers;
+        private readonly ZmqPollItem[]             _pollItems;
+
+        private ZmqPoller(ZmqPollItemWithHandlers[] pollItemsWithHandlers)
+        {
+            Argument.ExpectNonNull(pollItemsWithHandlers, "pollItemsWithHandlers");
+
+            _pollItemsWithHandlers = pollItemsWithHandlers;
+            _pollItems = new ZmqPollItem[pollItemsWithHandlers.Length];
+            for (int i = 0; i < pollItemsWithHandlers.Length; i++)
+            {
+                _pollItems[i] = new ZmqPollItem { Socket = pollItemsWithHandlers[i].ZmqSocket.NativePtr, Events = ZMQ_POLLIN | ZMQ_POLLOUT };
+            }
+        }
+
+        public static ZmqPollerBuilder New()
+        {
+            return new ZmqPollerBuilder();
         }
 
         public bool Poll(int timeOutMilliseconds)
@@ -40,16 +102,17 @@ namespace SimpleZmq
                 for (int i = 0; i < _pollItems.Length; i++)
                 {
                     var pollItem = _pollItems[i];
+                    var pollItemWithHandler = _pollItemsWithHandlers[i];
 
                     if (pollItem.ReadyEvents != 0)
                     {
-                        if (_handleReceive != null && (pollItem.ReadyEvents & ZMQ_POLLIN) == ZMQ_POLLIN)
+                        if (pollItemWithHandler.HandleReceive != null && (pollItem.ReadyEvents & ZMQ_POLLIN) == ZMQ_POLLIN)
                         {
-                            _handleReceive(_sockets[i]);
+                            pollItemWithHandler.HandleReceive(pollItemWithHandler.ZmqSocket);
                         }
-                        if (_handleSend != null && (pollItem.ReadyEvents & ZMQ_POLLOUT) == ZMQ_POLLOUT)
+                        if (pollItemWithHandler.HandleSend != null && (pollItem.ReadyEvents & ZMQ_POLLOUT) == ZMQ_POLLOUT)
                         {
-                            _handleSend(_sockets[i]);
+                            pollItemWithHandler.HandleSend(pollItemWithHandler.ZmqSocket);
                         }
                     }
                 }

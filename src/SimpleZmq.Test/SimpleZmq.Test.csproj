@@ -62,6 +62,7 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="ZmqMonitorSocketTest.cs" />
     <Compile Include="ZmqPollerTest.cs" />
     <Compile Include="ZmqContextTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -35,34 +35,37 @@ namespace SimpleZmq.Test
 
                             int numberOfExpectedMessagesIntoSocket1 = 1;
                             int numberOfExpectedMessagesIntoSocket2 = 1;
-                            var poller = new ZmqPoller(
-                                new[] { pullSocket1, pullSocket2 },
-                                s =>
-                                {
-                                    Assert.IsFalse(s.HasMoreToReceive);     // after polling, the socket doesn't seem to have more to receive, although it has.
-                                    var buffer = new byte[4];
-                                    int receivedLength;
-                                    var receivedBuffer = s.Receive(buffer, out receivedLength, doNotWait: true);
-                                    Assert.IsNotNull(receivedBuffer);
-                                    Assert.AreSame(buffer, receivedBuffer);
-                                    if (ReferenceEquals(s, pullSocket1))
+
+                            var poller = ZmqPoller.New()
+                                .With(
+                                    new[] { pullSocket1, pullSocket2 },
+                                    s =>
                                     {
-                                        Assert.AreEqual(receivedLength, 4);
-                                        CollectionAssert.AreEqual(receivedBuffer, new byte[] { 1, 2, 3, 4 });
-                                        numberOfExpectedMessagesIntoSocket1--;
+                                        Assert.IsFalse(s.HasMoreToReceive);     // after polling, the socket doesn't seem to have more to receive, although it has.
+                                        var buffer = new byte[4];
+                                        int receivedLength;
+                                        var receivedBuffer = s.Receive(buffer, out receivedLength, doNotWait: true);
+                                        Assert.IsNotNull(receivedBuffer);
+                                        Assert.AreSame(buffer, receivedBuffer);
+                                        if (ReferenceEquals(s, pullSocket1))
+                                        {
+                                            Assert.AreEqual(receivedLength, 4);
+                                            CollectionAssert.AreEqual(receivedBuffer, new byte[] { 1, 2, 3, 4 });
+                                            numberOfExpectedMessagesIntoSocket1--;
+                                        }
+                                        else if (ReferenceEquals(s, pullSocket2))
+                                        {
+                                            Assert.AreEqual(receivedLength, 4);
+                                            CollectionAssert.AreEqual(receivedBuffer, new byte[] { 11, 12, 13, 14 });
+                                            numberOfExpectedMessagesIntoSocket2--;
+                                        }
+                                        else
+                                        {
+                                            Assert.Fail();
+                                        }
                                     }
-                                    else if (ReferenceEquals(s, pullSocket2))
-                                    {
-                                        Assert.AreEqual(receivedLength, 4);
-                                        CollectionAssert.AreEqual(receivedBuffer, new byte[] { 11, 12, 13, 14 });
-                                        numberOfExpectedMessagesIntoSocket2--;
-                                    }
-                                    else
-                                    {
-                                        Assert.Fail();
-                                    }
-                                }
-                            );
+                                 )
+                                .Build();
                             pullSocketsReady.Set();
                             while (numberOfExpectedMessagesIntoSocket1 > 0 || numberOfExpectedMessagesIntoSocket2 > 0)
                             {

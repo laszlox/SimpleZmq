@@ -121,6 +121,9 @@ namespace SimpleZmq.Native
         public static extern int zmq_poll([In] [Out] ZmqPollItem[] items, int nitems, long timeout);
 
         [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int zmq_socket_monitor(IntPtr socket, [MarshalAs(UnmanagedType.LPStr)] string addr, int events);
+
+        [DllImport("libzmq", CallingConvention = CallingConvention.Cdecl)]
         public static extern int zmq_close(IntPtr socket);
 
         // pre-created delegate instances so that we can pass zmq functions as delegates without allocating on the managed heap
