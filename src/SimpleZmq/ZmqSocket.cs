@@ -285,9 +285,9 @@ namespace SimpleZmq
             SetBufferOption(ZMQ_UNSUBSCRIBE, _allSubscription);
         }
 
-        public ZmqMonitorSocket Monitor(ZmqSocketMonitorEvent eventsToMonitor = ZmqSocketMonitorEvent.All)
+        public ZmqSocketMonitor Monitor(ZmqSocketMonitorEvent eventsToMonitor = ZmqSocketMonitorEvent.All)
         {
-            return new ZmqMonitorSocket(this, eventsToMonitor, _logError);
+            return new ZmqSocketMonitor(this, eventsToMonitor, _logError);
         }
 
         /// <summary>

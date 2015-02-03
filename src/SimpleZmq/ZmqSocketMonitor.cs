@@ -67,7 +67,7 @@ namespace SimpleZmq
         }
     }
 
-    public class ZmqMonitorSocket : IDisposable
+    public class ZmqSocketMonitor : IDisposable
     {
         private readonly Action<string>             _logError;
         private readonly string                     _monitorEndpoint;
@@ -75,9 +75,9 @@ namespace SimpleZmq
         private readonly byte[]                     _monitorEventBuffer = new byte[256];
         private readonly ZmqSocketMonitorEventArgs  _monitorEventArgs = new ZmqSocketMonitorEventArgs();
 
-        private bool                                _stopped;
+        private bool                                _isStopped;
 
-        internal ZmqMonitorSocket(ZmqSocket socketToMonitor, ZmqSocketMonitorEvent eventsToMonitor, Action<string> logError)
+        internal ZmqSocketMonitor(ZmqSocket socketToMonitor, ZmqSocketMonitorEvent eventsToMonitor, Action<string> logError)
         {
             Argument.ExpectNonNull(socketToMonitor, "socketToMonitor");
             Argument.ExpectNonNull(logError, "logError");
@@ -92,6 +92,11 @@ namespace SimpleZmq
         public ZmqSocket Socket
         {
             get { return _monitorSocket; }
+        }
+
+        public bool IsStopped
+        {
+            get { return _isStopped; }
         }
 
         public ZmqSocketMonitorEventArgs ReceiveMonitorEvent()
@@ -110,7 +115,7 @@ namespace SimpleZmq
 
             if (monitorEvent == ZmqSocketMonitorEvent.MonitorStopped)
             {
-                _stopped = true;
+                _isStopped = true;
             }
             else
             {

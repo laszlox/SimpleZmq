@@ -22,6 +22,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <LangVersion>4</LangVersion>
+    <DocumentationFile>bin\Debug\SimpleZmq.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -31,6 +32,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <LangVersion>4</LangVersion>
+    <DocumentationFile>bin\Release\SimpleZmq.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -43,7 +45,7 @@
   <ItemGroup>
     <Compile Include="Native\LibZmq.cs" />
     <Compile Include="Argument.cs" />
-    <Compile Include="ZmqMonitorSocket.cs" />
+    <Compile Include="ZmqSocketMonitor.cs" />
     <Compile Include="ZmqPoller.cs" />
     <Compile Include="ZmqPollItem.cs" />
     <Compile Include="ZmqSocketSecurityMechanism.cs" />
@@ -62,6 +64,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Native\ZmqErrNo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="SimpleZmq.nuspec" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -45,12 +45,11 @@ namespace SimpleZmq.Test
                                     }
                                  )
                                 .With(
-                                    zmqClientSocketMonitor.Socket,
-                                    s =>
+                                    zmqClientSocketMonitor,
+                                    e =>
                                     {
-                                        var monitoringEventArgs = zmqClientSocketMonitor.ReceiveMonitorEvent();
-                                        Assert.IsNotNull(monitoringEventArgs);
-                                        Console.WriteLine("Client socket monitoring event: {0}", monitoringEventArgs);
+                                        Assert.IsNotNull(e);
+                                        Console.WriteLine("Client socket monitoring event: {0}", e);
                                     }
                                  )
                                 .Build();
@@ -58,17 +57,18 @@ namespace SimpleZmq.Test
                             {
                                 clientPoller.Poll(500);
                             }
+                            zmqClientSocket.Dispose();
+                            clientPoller.PollMonitorSocketsUntilTheyStop();
                         }
                     });
 
                     var serverPoller = ZmqPoller.New()
                         .With(
-                            zmqServerSocketMonitor.Socket,
-                            s =>
+                            zmqServerSocketMonitor,
+                            e =>
                             {
-                                var monitoringEventArgs = zmqServerSocketMonitor.ReceiveMonitorEvent();
-                                Assert.IsNotNull(monitoringEventArgs);
-                                Console.WriteLine("Server socket monitoring event: {0}", monitoringEventArgs);
+                                Assert.IsNotNull(e);
+                                Console.WriteLine("Server socket monitoring event: {0}", e);
                             }
                          )
                         .Build();
@@ -79,6 +79,8 @@ namespace SimpleZmq.Test
                         Assert.IsTrue(zmqServerSocket.Send(new byte[] { 1, 2, 3, 4}, 4));
                         numberOfSentMessages++;
                     }
+                    zmqServerSocket.Dispose();
+                    serverPoller.PollMonitorSocketsUntilTheyStop();
 
                     clientPolling.Wait();
                 }

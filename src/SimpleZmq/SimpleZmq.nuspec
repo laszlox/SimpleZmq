@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>SimpleZmq</id>
+    <version>4.0.4</version>
+    <authors>Laszlo Bende</authors>
+    <owners>Laszlo Bende</owners>
+    <licenseUrl>http://opensource.org/licenses/MIT</licenseUrl>
+    <projectUrl>https://github.com/laszlox/SimpleZmq/</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Simple .NET binding for libzmq.</description>
+    <releaseNotes>Initial version of SimpleZmq - .NET binding for libzmq.</releaseNotes>
+    <copyright>Copyright 2015</copyright>
+    <tags>zmq zeromq</tags>
+  </metadata>
+  <files>
+    <file src="bin\Release\SimpleZmq.dll" target="lib\net40" />
+    <file src="bin\Release\SimpleZmq.pdb" target="lib\net40" />
+    <file src="bin\Release\SimpleZmq.xml" target="lib\net40" />
+  </files>
+</package>
