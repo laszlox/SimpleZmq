@@ -41,9 +41,6 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="MSTestExtensions">
-      <HintPath>..\packages\MSTestExtensions.3.0.0\lib\net40\MSTestExtensions.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
@@ -62,6 +59,7 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="ExceptionAssert.cs" />
     <Compile Include="ZmqMonitorSocketTest.cs" />
     <Compile Include="ZmqPollerTest.cs" />
     <Compile Include="ZmqContextTest.cs" />
@@ -73,9 +71,6 @@
       <Project>{94cd06ca-b533-41e3-9792-c1c7c5741caf}</Project>
       <Name>SimpleZmq</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">

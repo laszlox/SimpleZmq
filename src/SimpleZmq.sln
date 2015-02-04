@@ -7,6 +7,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleZmq", "SimpleZmq\Simp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleZmq.Test", "SimpleZmq.Test\SimpleZmq.Test.csproj", "{D39E790C-3DDF-458A-9995-F5D88DD17D12}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{E15022E6-ABA8-4CE8-A3A2-EFF834A58523}"
+	ProjectSection(SolutionItems) = preProject
+		build.proj = build.proj
+		SimpleZmq.nuspec = SimpleZmq.nuspec
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

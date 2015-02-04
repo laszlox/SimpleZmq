@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <SolutionDir Condition="'$(SolutionDir)'==''">$(MSBuildProjectDirectory)</SolutionDir>
+    <BuildDir>$(MSBuildProjectDirectory)\..\build</BuildDir>
+    <Configuration Condition="'$(Configuration)'==''">Release</Configuration>
+    <KeyFile>$(MSBuildProjectDirectory)\..\..\..\keys\SimpleZmq\SimpleZmq.snk</KeyFile>
+  </PropertyGroup>
+
+  <Target Name="Build"> 
+    <MSBuild Targets="Build" Projects="SimpleZmq.sln" Properties="Configuration=$(Configuration);Platform=Any CPU;RestorePackages=true;SignAssembly=true;AssemblyOriginatorKeyFile=$(KeyFile)" />
+    <ItemGroup>
+      <OutputFiles Include="$(SolutionDir)\*\bin\$(Configuration)\SimpleZmq.dll" />
+      <OutputFiles Include="$(SolutionDir)\*\bin\$(Configuration)\SimpleZmq.pdb" />
+      <OutputFiles Include="$(SolutionDir)\*\bin\$(Configuration)\SimpleZmq.xml" />
+    </ItemGroup>
+    <Copy SourceFiles="@(OutputFiles)" DestinationFolder="$(BuildDir)" ContinueOnError="true" />
+  </Target>
+</Project>

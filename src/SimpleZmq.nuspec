@@ -2,7 +2,7 @@
 <package >
   <metadata>
     <id>SimpleZmq</id>
-    <version>4.0.4</version>
+    <version>4.0.0</version>
     <authors>Laszlo Bende</authors>
     <owners>Laszlo Bende</owners>
     <licenseUrl>http://opensource.org/licenses/MIT</licenseUrl>
@@ -14,8 +14,8 @@
     <tags>zmq zeromq</tags>
   </metadata>
   <files>
-    <file src="bin\Release\SimpleZmq.dll" target="lib\net40" />
-    <file src="bin\Release\SimpleZmq.pdb" target="lib\net40" />
-    <file src="bin\Release\SimpleZmq.xml" target="lib\net40" />
+    <file src="..\build\SimpleZmq.dll" target="lib\net40" />
+    <file src="..\build\SimpleZmq.pdb" target="lib\net40" />
+    <file src="..\build\SimpleZmq.xml" target="lib\net40" />
   </files>
 </package>
