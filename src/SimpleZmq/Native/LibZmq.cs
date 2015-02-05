@@ -8,7 +8,10 @@ using System.Text;
 
 namespace SimpleZmq.Native
 {
-    public static partial class LibZmq
+    /// <summary>
+    /// Static class to manage libzmq.
+    /// </summary>
+    internal static partial class LibZmq
     {
         static LibZmq()
         {

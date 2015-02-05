@@ -6,24 +6,76 @@ using System.Text;
 
 namespace SimpleZmq
 {
+    /// <summary>
+    /// The available zmq monitor event flags.
+    /// </summary>
     [Flags]
     public enum ZmqSocketMonitorEvent
     {
+        /// <summary>
+        /// The socket was connected.
+        /// </summary>
         Connected = 1,
+
+        /// <summary>
+        /// The connection to the other endpoint was delayed.
+        /// </summary>
         ConnectDelayed = 2,
+
+        /// <summary>
+        /// The socket retried connecting to the other endpoint.
+        /// </summary>
         ConnectRetried = 4,
+
+        /// <summary>
+        /// The socket is listening.
+        /// </summary>
         Listening = 8,
+
+        /// <summary>
+        /// The socket's binding failed.
+        /// </summary>
         BindFailed = 16,
+
+        /// <summary>
+        /// The socket successfully accepted a new connection.
+        /// </summary>
         Accepted = 32,
+
+        /// <summary>
+        /// The socket failed to accept a new connection.
+        /// </summary>
         AcceptFailed = 64,
+
+        /// <summary>
+        /// The socket was closed.
+        /// </summary>
         Closed = 128,
+
+        /// <summary>
+        /// The socket failed to close.
+        /// </summary>
         CloseFailed = 256,
+
+        /// <summary>
+        /// The socket was disconnected from the other endpoint.
+        /// </summary>
         Disconnected = 512,
+
+        /// <summary>
+        /// The monitor is stopped. This is the last event the monitor receives.
+        /// </summary>
         MonitorStopped = 1024,
 
+        /// <summary>
+        /// The combination of all possible monitor events.
+        /// </summary>
         All = Connected | ConnectDelayed | ConnectRetried | Listening | BindFailed | Accepted | AcceptFailed | Closed | CloseFailed | Disconnected | MonitorStopped
     }
 
+    /// <summary>
+    /// The event arguments for zmq monitor event occurances.
+    /// </summary>
     public class ZmqSocketMonitorEventArgs
     {
         private ZmqSocketMonitorEvent   _monitorEvent;
@@ -40,26 +92,42 @@ namespace SimpleZmq
             return this;
         }
 
+        /// <summary>
+        /// Gets the monitor event type.
+        /// </summary>
         public ZmqSocketMonitorEvent Event
         {
             get { return _monitorEvent; }
         }
 
+        /// <summary>
+        /// Gets the event value. It means different things for different events (sometimes nothing).
+        /// </summary>
         public int EventValue
         {
             get { return _eventValue; }
         }
 
+        /// <summary>
+        /// The zmq error if the event meant a failure.
+        /// </summary>
         public ZmqError Error
         {
             get { return _error; }
         }
 
+        /// <summary>
+        /// The endpoint string. As of libzmq 4.0.4 it's not guaranteed to be a meaningful string.
+        /// </summary>
         public string Endpoint
         {
             get { return _endpoint; }
         }
 
+        /// <summary>
+        /// Returns the string representation of this class.
+        /// </summary>
+        /// <returns>The string representation of this class.</returns>
         public override string ToString()
         {
             // event-value is not that meaningful, endpoint is not always a valid string, so we just print the event and the error, if there was any.
@@ -67,6 +135,9 @@ namespace SimpleZmq
         }
     }
 
+    /// <summary>
+    /// Class to monitor a zmq socket.
+    /// </summary>
     public class ZmqSocketMonitor : IDisposable
     {
         private readonly Action<string>             _logError;
@@ -89,23 +160,33 @@ namespace SimpleZmq
             _monitorSocket.Connect(_monitorEndpoint);
         }
 
-        public ZmqSocket Socket
+        /// <summary>
+        /// The zmq socket of the monitor. This inproc PAIR socket received all the monitoring events. It's not supposed to be used directly.
+        /// </summary>
+        internal ZmqSocket Socket
         {
             get { return _monitorSocket; }
         }
 
-        public bool IsStopped
+        /// <summary>
+        /// Gets a value indicating whether the zmq monitor was stopped or not. The zmq monitor's inproc PAIR socket must be polled until it receives the last message, which is the stop.
+        /// </summary>
+        internal bool IsStopped
         {
             get { return _isStopped; }
         }
 
-        public ZmqSocketMonitorEventArgs ReceiveMonitorEvent()
+        /// <summary>
+        /// Receives a monitoring event from the inproc PAIR socket.
+        /// </summary>
+        /// <returns>The monitor event arguments.</returns>
+        internal ZmqSocketMonitorEventArgs ReceiveMonitorEvent()
         {
             int msgframeSize;
             var msgFrameBuffer = _monitorSocket.Receive(_monitorEventBuffer, out msgframeSize);
             if (msgframeSize != 6)
             {
-                _logError(String.Format("ZmqMonitorSocket.ReceiveMonitorEvent(): received only {0} bytes, expecting 6 in the 1. frame.", msgframeSize));
+                _logError(String.Format("ZmqSocketMonitor.ReceiveMonitorEvent(): received only {0} bytes, expecting 6 in the 1. frame.", msgframeSize));
                 return null;
             }
             var monitorEvent = (ZmqSocketMonitorEvent)(BitConverter.ToInt16(msgFrameBuffer, 0));
@@ -116,6 +197,8 @@ namespace SimpleZmq
             if (monitorEvent == ZmqSocketMonitorEvent.MonitorStopped)
             {
                 _isStopped = true;
+                // receive the second, empty frame, and just ignore it.
+                _monitorSocket.Receive(_monitorEventBuffer, out msgframeSize);
             }
             else
             {
@@ -131,6 +214,9 @@ namespace SimpleZmq
             return _monitorEventArgs.ReInitialize(monitorEvent, eventValue, error, endpoint);
         }
 
+        /// <summary>
+        /// Disposes the zmq monitor with its inproc PAIR socket.
+        /// </summary>
         public void Dispose()
         {
             _monitorSocket.Dispose();

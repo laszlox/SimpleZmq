@@ -8,6 +8,9 @@ using System.Text;
 
 namespace SimpleZmq
 {
+    /// <summary>
+    /// Class wrapping a zmq socket.
+    /// </summary>
     public class ZmqSocket : IDisposable
     {
         // send options
@@ -90,6 +93,9 @@ namespace SimpleZmq
         private IntPtr                          _zmqSocketPtr;
         private bool                            _disposed;
 
+        /// <summary>
+        /// Finalizes (disposes) the zmq socket.
+        /// </summary>
         ~ZmqSocket()
         {
             Dispose(false);
@@ -225,6 +231,30 @@ namespace SimpleZmq
         }
         #endregion
 
+        /// <summary>
+        /// Disposes the zmq socket.
+        /// </summary>
+        /// <param name="isDisposing">True if it's called from Dispose(), false if it's called from the finalizer.</param>
+        protected virtual void Dispose(bool isDisposing)
+        {
+            if (_disposed) return;
+
+            if (_zmqSocketPtr != IntPtr.Zero)
+            {
+                ZmqError zmqError;
+                if ((zmqError = Zmq.Error(LibZmq.zmq_close(_zmqSocketPtr)).IgnoreContextTerminated()).IsError)
+                {
+                    // We can't throw exception because we may be in a finally block.
+                    _logError(String.Format("ZmqSocket.Dispose(): {0}", zmqError));
+                }
+                _zmqSocketPtr = IntPtr.Zero;
+            }
+
+            _msg.Dispose();
+
+            _disposed = true;
+        }
+
         internal ZmqSocket(ZmqContext zmqContext, IntPtr zmqSocketPtr, Action<string> logError)
         {
             Argument.ExpectNonNull(zmqContext, "zmqContext");
@@ -242,11 +272,18 @@ namespace SimpleZmq
             get { return _zmqSocketPtr; }
         }
 
-        public ZmqContext Context
+        internal ZmqContext Context
         {
             get { return _zmqContext; }
         }
 
+        /// <summary>
+        /// Binds the socket to the specified endpoint.
+        /// </summary>
+        /// <param name="endPoint">The endpoint.</param>
+        /// <remarks>
+        /// Throws <see cref="ZmqException"/> in case of any non-context termination errors.
+        /// </remarks>
         public void Bind(string endPoint)
         {
             Argument.ExpectNonNullAndWhiteSpace(endPoint, "endPoint");
@@ -254,6 +291,13 @@ namespace SimpleZmq
             Zmq.ThrowIfError_IgnoreContextTerminated(LibZmq.zmq_bind(_zmqSocketPtr, endPoint));
         }
 
+        /// <summary>
+        /// Connects the socket to the specified endpoint.
+        /// </summary>
+        /// <param name="endPoint">The endpoint.</param>
+        /// <remarks>
+        /// Throws <see cref="ZmqException"/> in case of any non-context termination errors.
+        /// </remarks>
         public void Connect(string endPoint)
         {
             Argument.ExpectNonNullAndWhiteSpace(endPoint, "endPoint");
@@ -261,6 +305,13 @@ namespace SimpleZmq
             Zmq.ThrowIfError_IgnoreContextTerminated(LibZmq.zmq_connect(_zmqSocketPtr, endPoint));
         }
 
+        /// <summary>
+        /// Subscribes the SUB socket to the specified message-prefix.
+        /// </summary>
+        /// <param name="messagePrefix">The message-prefix to subscribe to.</param>
+        /// <remarks>
+        /// Throws <see cref="ZmqException"/> in case of any non-context termination errors.
+        /// </remarks>
         public void Subscribe(byte[] messagePrefix)
         {
             Argument.ExpectNonNull(messagePrefix, "messagePrefix");
@@ -268,11 +319,24 @@ namespace SimpleZmq
             SetBufferOption(ZMQ_SUBSCRIBE, messagePrefix);
         }
 
+        /// <summary>
+        /// Subscribes the SUB socket to all messages.
+        /// </summary>
+        /// <remarks>
+        /// Throws <see cref="ZmqException"/> in case of any non-context termination errors.
+        /// </remarks>
         public void SubscribeToAll()
         {
             SetBufferOption(ZMQ_SUBSCRIBE, _allSubscription);
         }
 
+        /// <summary>
+        /// Unsubscribes the SUB socket from the specified message-prefix.
+        /// </summary>
+        /// <param name="messagePrefix">The message-prefix to unsubscribe from.</param>
+        /// <remarks>
+        /// Throws <see cref="ZmqException"/> in case of any non-context termination errors.
+        /// </remarks>
         public void Unsubscribe(byte[] messagePrefix)
         {
             Argument.ExpectNonNull(messagePrefix, "messagePrefix");
@@ -280,11 +344,25 @@ namespace SimpleZmq
             SetBufferOption(ZMQ_UNSUBSCRIBE, messagePrefix);
         }
 
+        /// <summary>
+        /// Unsubscribes the SUB socket from all messages.
+        /// </summary>
+        /// <remarks>
+        /// Throws <see cref="ZmqException"/> in case of any non-context termination errors.
+        /// </remarks>
         public void UnsubscribeFromAll()
         {
             SetBufferOption(ZMQ_UNSUBSCRIBE, _allSubscription);
         }
 
+        /// <summary>
+        /// Starts monitoring the socket and returns the <see cref="ZmqSocketMonitor"/>. The returned monitor must be polled until it's stopped (even after the socket is disposed).
+        /// </summary>
+        /// <param name="eventsToMonitor">The events to monitor.</param>
+        /// <returns>The monitor that must be polled until it's stopped.</returns>
+        /// <remarks>
+        /// Throws <see cref="ZmqException"/> in case of any errors.
+        /// </remarks>
         public ZmqSocketMonitor Monitor(ZmqSocketMonitorEvent eventsToMonitor = ZmqSocketMonitorEvent.All)
         {
             return new ZmqSocketMonitor(this, eventsToMonitor, _logError);
@@ -295,10 +373,13 @@ namespace SimpleZmq
         /// </summary>
         /// <param name="buffer">The bytes to send.</param>
         /// <param name="length">The length of the data to send.</param>
-        /// <param name="doNotWait">If true, the send operation won't block for DEALER and PUSH sockets (it would normally block if there is no peer at the other end). In that case it'll return false instead of blocking.</param>
         /// <param name="hasMore">True if the message has more frames to send.</param>
+        /// <param name="doNotWait">If true, the send operation won't block for DEALER and PUSH sockets (it would normally block if there is no peer at the other end). In that case it'll return false instead of blocking.</param>
         /// <returns>True if the buffer was sent successfully, false if it couldn't queue it in the socket and should be retried (it can happen only when doNotWait is true).</returns>
-        public bool Send(byte[] buffer, int length, bool doNotWait = false, bool hasMore = false)
+        /// <remarks>
+        /// Throws <see cref="ZmqException"/> in case of any non-context termination errors.
+        /// </remarks>
+        public bool Send(byte[] buffer, int length, bool hasMore = false, bool doNotWait = false)
         {
             int sendFlags = (doNotWait ? ZMQ_DONTWAIT : 0) | (hasMore ? ZMQ_SNDMORE : 0);
             return Zmq.ThrowIfError_IgnoreContextTerminated(
@@ -314,6 +395,9 @@ namespace SimpleZmq
         /// <param name="length">Out: the length of the received data.</param>
         /// <param name="doNotWait">If true, the receive won't block if there is nothing to receive, but return null. Otherwise it blocks.</param>
         /// <returns>The byte[] that contains the resulting message. If the input byte[] wasn't large enough, a new one is allocated and returned.</returns>
+        /// <remarks>
+        /// Throws <see cref="ZmqException"/> in case of any non-context termination errors.
+        /// </remarks>
         public byte[] Receive(byte[] buffer, out int length, bool doNotWait = false)
         {
             Zmq.ThrowIfError(LibZmq.zmq_msg_init(_msg.Pointer));
@@ -336,7 +420,7 @@ namespace SimpleZmq
                 }
 
                 // finally copying the content from the msg structure into the byte buffer
-                Marshal.Copy(_msg.Pointer, buffer, 0, length);
+                Marshal.Copy(LibZmq.zmq_msg_data(_msg.Pointer), buffer, 0, length);
             }
             finally
             {
@@ -347,153 +431,231 @@ namespace SimpleZmq
         }
 
         #region Socket Option Properties
+        /// <summary>
+        /// Gets the socket type.
+        /// </summary>
         public ZmqSocketType SocketType
         {
             get { return (ZmqSocketType)GetInt32Option(ZMQ_TYPE); }
         }
 
+        /// <summary>
+        /// Gets a value indicating whether the socket has anything more to receive without blocking.
+        /// </summary>
         public bool HasMoreToReceive
         {
             get { return GetInt32Option(ZMQ_RCVMORE) == 1; }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_SNDHWM option.
+        /// </summary>
         public int SendHWM
         {
             get { return GetInt32Option(ZMQ_SNDHWM); }
             set { SetInt32Option(ZMQ_SNDHWM, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_RCVHWM option.
+        /// </summary>
         public int ReceiveHWM
         {
             get { return GetInt32Option(ZMQ_RCVHWM); }
             set { SetInt32Option(ZMQ_RCVHWM, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_AFFINITY option.
+        /// </summary>
         public ulong Affinity
         {
             get { return GetUlongOption(ZMQ_AFFINITY); }
             set { SetUlongOption(ZMQ_AFFINITY, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_IDENTITY option.
+        /// </summary>
         public byte[] Identity
         {
             get { return GetBufferOption(ZMQ_IDENTITY); }
             set { SetBufferOption(ZMQ_IDENTITY, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_RATE option.
+        /// </summary>
         public int Rate
         {
             get { return GetInt32Option(ZMQ_RATE); }
             set { SetInt32Option(ZMQ_RATE, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_RECOVERY_IVL option.
+        /// </summary>
         public int RecoveryInterval
         {
             get { return GetInt32Option(ZMQ_RECOVERY_IVL); }
             set { SetInt32Option(ZMQ_RECOVERY_IVL, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_SNDBUF option.
+        /// </summary>
         public int SendBufferSize
         {
             get { return GetInt32Option(ZMQ_SNDBUF); }
             set { SetInt32Option(ZMQ_SNDBUF, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_RCVBUF option.
+        /// </summary>
         public int ReceiveBufferSize
         {
             get { return GetInt32Option(ZMQ_RCVBUF); }
             set { SetInt32Option(ZMQ_RCVBUF, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_LINGER option.
+        /// </summary>
         public int Linger
         {
             get { return GetInt32Option(ZMQ_LINGER); }
             set { SetInt32Option(ZMQ_LINGER, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_RECONNECT_IVL option.
+        /// </summary>
         public int ReconnectInterval
         {
             get { return GetInt32Option(ZMQ_RECONNECT_IVL); }
             set { SetInt32Option(ZMQ_RECONNECT_IVL, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_RECONNECT_IVL_MAX option.
+        /// </summary>
         public int MaxReconnectInterval
         {
             get { return GetInt32Option(ZMQ_RECONNECT_IVL_MAX); }
             set { SetInt32Option(ZMQ_RECONNECT_IVL_MAX, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_BACKLOG option.
+        /// </summary>
         public int BackLog
         {
             get { return GetInt32Option(ZMQ_BACKLOG); }
             set { SetInt32Option(ZMQ_BACKLOG, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_MAXMSGSIZE option.
+        /// </summary>
         public long MaxMessageSize
         {
             get { return GetLongOption(ZMQ_MAXMSGSIZE); }
             set { SetLongOption(ZMQ_MAXMSGSIZE, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_MULTICAST_HOPS option.
+        /// </summary>
         public int MulticastHops
         {
             get { return GetInt32Option(ZMQ_MULTICAST_HOPS); }
             set { SetInt32Option(ZMQ_MULTICAST_HOPS, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_RCVTIMEO option.
+        /// </summary>
         public int ReceiveTimeOut
         {
             get { return GetInt32Option(ZMQ_RCVTIMEO); }
             set { SetInt32Option(ZMQ_RCVTIMEO, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_SNDTIMEO option.
+        /// </summary>
         public int SendTimeOut
         {
             get { return GetInt32Option(ZMQ_SNDTIMEO); }
             set { SetInt32Option(ZMQ_SNDTIMEO, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_IPV6 option.
+        /// </summary>
         public bool IPv6Enabled
         {
             get { return GetInt32Option(ZMQ_IPV6) == 1; }
             set { SetInt32Option(ZMQ_IPV6, value ? 1 : 0); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_IMMEDIATE option.
+        /// </summary>
         public bool Immediate
         {
             get { return GetInt32Option(ZMQ_IMMEDIATE) == 1; }
             set { SetInt32Option(ZMQ_IMMEDIATE, value ? 1 : 0); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_LAST_ENDPOINT option.
+        /// </summary>
         public string LastEndPoint
         {
             get { return GetStringOption(ZMQ_LAST_ENDPOINT); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_TCP_KEEPALIVE option.
+        /// </summary>
         public int TcpKeepAlive
         {
             get { return GetInt32Option(ZMQ_TCP_KEEPALIVE); }
             set { SetInt32Option(ZMQ_TCP_KEEPALIVE, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_TCP_KEEPALIVE_IDLE option.
+        /// </summary>
         public int TcpKeepAliveIdle
         {
             get { return GetInt32Option(ZMQ_TCP_KEEPALIVE_IDLE); }
             set { SetInt32Option(ZMQ_TCP_KEEPALIVE_IDLE, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_TCP_KEEPALIVE_CNT option.
+        /// </summary>
         public int TcpKeepAliveCnt
         {
             get { return GetInt32Option(ZMQ_TCP_KEEPALIVE_CNT); }
             set { SetInt32Option(ZMQ_TCP_KEEPALIVE_CNT, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_TCP_KEEPALIVE_INTVL option.
+        /// </summary>
         public int TcpKeepAliveIntVl
         {
             get { return GetInt32Option(ZMQ_TCP_KEEPALIVE_INTVL); }
             set { SetInt32Option(ZMQ_TCP_KEEPALIVE_INTVL, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_MECHANISM option.
+        /// </summary>
         public ZmqSocketSecurityMechanism SecurityMechanism
         {
             get { return (ZmqSocketSecurityMechanism)GetInt32Option(ZMQ_MECHANISM); }
@@ -501,60 +663,90 @@ namespace SimpleZmq
             set { SetInt32Option(ZMQ_MECHANISM, (int)value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_PLAIN_SERVER option.
+        /// </summary>
         public int PlainServer
         {
             get { return GetInt32Option(ZMQ_PLAIN_SERVER); }
             set { SetInt32Option(ZMQ_PLAIN_SERVER, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_PLAIN_USERNAME option.
+        /// </summary>
         public string PlainUserName
         {
             get { return GetStringOption(ZMQ_PLAIN_USERNAME); }
             set { SetStringOption(ZMQ_PLAIN_USERNAME, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_PLAIN_PASSWORD option.
+        /// </summary>
         public string PlainPassword
         {
             get { return GetStringOption(ZMQ_PLAIN_PASSWORD); }
             set { SetStringOption(ZMQ_PLAIN_PASSWORD, value); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_CURVE_PUBLICKEY option.
+        /// </summary>
         public byte[] CurvePublicKey
         {
             get { return GetBufferOption(ZMQ_CURVE_PUBLICKEY, 32); }
             set { SetBufferOption(ZMQ_CURVE_PUBLICKEY, value, 32); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_CURVE_PUBLICKEY option.
+        /// </summary>
         public string CurvePublicKeyString
         {
             get { return GetStringOption(ZMQ_CURVE_PUBLICKEY, 41); }
             set { SetStringOption(ZMQ_CURVE_PUBLICKEY, value, 41); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_CURVE_SECRETKEY option.
+        /// </summary>
         public byte[] CurveSecretKey
         {
             get { return GetBufferOption(ZMQ_CURVE_SECRETKEY, 32); }
             set { SetBufferOption(ZMQ_CURVE_SECRETKEY, value, 32); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_CURVE_SECRETKEY option.
+        /// </summary>
         public string CurveSecretKeyString
         {
             get { return GetStringOption(ZMQ_CURVE_SECRETKEY, 41); }
             set { SetStringOption(ZMQ_CURVE_SECRETKEY, value, 41); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_CURVE_SERVERKEY option.
+        /// </summary>
         public byte[] CurveServerKey
         {
             get { return GetBufferOption(ZMQ_CURVE_SERVERKEY, 32); }
             set { SetBufferOption(ZMQ_CURVE_SERVERKEY, value, 32); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_CURVE_SERVERKEY option.
+        /// </summary>
         public string CurveServerKeyString
         {
             get { return GetStringOption(ZMQ_CURVE_SERVERKEY, 41); }
             set { SetStringOption(ZMQ_CURVE_SERVERKEY, value, 41); }
         }
 
+        /// <summary>
+        /// Gets or sets the ZMQ_ZAP_DOMAIN option.
+        /// </summary>
         public string ZAPDomain
         {
             get { return GetStringOption(ZMQ_ZAP_DOMAIN); }
@@ -564,26 +756,9 @@ namespace SimpleZmq
 
         #endregion
 
-        public virtual void Dispose(bool isDisposing)
-        {
-            if (_disposed) return;
-
-            if (_zmqSocketPtr != IntPtr.Zero)
-            {
-                ZmqError zmqError;
-                if ((zmqError = Zmq.Error(LibZmq.zmq_close(_zmqSocketPtr)).IgnoreContextTerminated()).IsError)
-                {
-                    // We can't throw exception because we may be in a finally block.
-                    _logError(String.Format("ZmqSocket.Dispose(): {0}", zmqError));
-                }
-                _zmqSocketPtr = IntPtr.Zero;
-            }
-
-            _msg.Dispose();
-
-            _disposed = true;
-        }
-
+        /// <summary>
+        /// Disposes the zmq socket.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);

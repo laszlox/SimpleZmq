@@ -1,0 +1,3 @@
+@echo off
+echo Pushing NuGet packages...
+.\tools\nuget.exe push .\build\*.nupkg

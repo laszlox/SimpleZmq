@@ -6,6 +6,9 @@ using System.Text;
 
 namespace SimpleZmq
 {
+    /// <summary>
+    /// Class helping zmq polling.
+    /// </summary>
     public class ZmqPoller
     {
         private const int ZMQ_POLLIN = 1;
@@ -39,6 +42,11 @@ namespace SimpleZmq
             {
                 get { return _handleSend; }
             }
+
+            public short ZmqEventsFlags
+            {
+                get { return (short)((_handleReceive != null ? ZMQ_POLLIN : 0) | (_handleSend != null ? ZMQ_POLLOUT : 0)); }
+            }
         }
 
         private struct ZmqSocketMonitorWithHandler
@@ -61,13 +69,28 @@ namespace SimpleZmq
             {
                 get { return _handleEvent; }
             }
+
+            public short ZmqEventsFlags
+            {
+                get { return ZMQ_POLLIN; }
+            }
         }
 
+        /// <summary>
+        /// Builder class to build a <see cref="ZmqPoller"/> instance.
+        /// </summary>
         public class ZmqPollerBuilder
         {
             private List<ZmqSocketWithHandlers>         _socketsWithHandlers = new List<ZmqSocketWithHandlers>();
             private List<ZmqSocketMonitorWithHandler>   _socketMonitorsWithHandler = new List<ZmqSocketMonitorWithHandler>();
 
+            /// <summary>
+            /// Adds the specified sockets to the polling with the receive and optional send handlers.
+            /// </summary>
+            /// <param name="zmqSockets">The sockets to poll.</param>
+            /// <param name="handleReceive">The receive handler.</param>
+            /// <param name="handleSend">The send handler.</param>
+            /// <returns>This builder instance to support fluent calls.</returns>
             public ZmqPollerBuilder With(ZmqSocket[] zmqSockets, Action<ZmqSocket> handleReceive, Action<ZmqSocket> handleSend = null)
             {
                 if (_socketsWithHandlers == null) throw new InvalidOperationException("ZmqPollerBuilder has already built a poller.");
@@ -78,6 +101,13 @@ namespace SimpleZmq
                 return this;
             }
 
+            /// <summary>
+            /// Adds the specified socket to the polling with the receive and optional send handlers.
+            /// </summary>
+            /// <param name="zmqSocket">The socket to poll.</param>
+            /// <param name="handleReceive">The receive handler.</param>
+            /// <param name="handleSend">The send handler.</param>
+            /// <returns>This builder instance to support fluent calls.</returns>
             public ZmqPollerBuilder With(ZmqSocket zmqSocket, Action<ZmqSocket> handleReceive, Action<ZmqSocket> handleSend = null)
             {
                 if (_socketsWithHandlers == null) throw new InvalidOperationException("ZmqPollerBuilder has already built a poller.");
@@ -85,6 +115,12 @@ namespace SimpleZmq
                 return this;
             }
 
+            /// <summary>
+            /// Adds the specified socket monitor to the polling with the monitor event handler.
+            /// </summary>
+            /// <param name="zmqSocketMonitor">The socket monitor to poll.</param>
+            /// <param name="handleEvent">The monitor event handler.</param>
+            /// <returns>This builder instance to support fluent calls.</returns>
             public ZmqPollerBuilder With(ZmqSocketMonitor zmqSocketMonitor, Action<ZmqSocketMonitorEventArgs> handleEvent)
             {
                 if (_socketMonitorsWithHandler == null) throw new InvalidOperationException("ZmqPollerBuilder has already built a poller.");
@@ -92,6 +128,10 @@ namespace SimpleZmq
                 return this;
             }
 
+            /// <summary>
+            /// Finishes building up the <see cref="ZmqPoller"/> and returns the ready-to-use poller.
+            /// </summary>
+            /// <returns>The ready-to-use poller.</returns>
             public ZmqPoller Build()
             {
                 var pollItemsWithHandlers = _socketsWithHandlers;
@@ -101,7 +141,6 @@ namespace SimpleZmq
                 return new ZmqPoller(pollItemsWithHandlers.ToArray(), socketMonitorsWithHandler.ToArray());
             }
         }
-
 
         private readonly ZmqSocketWithHandlers[]        _socketsWithHandlers;
         private readonly ZmqSocketMonitorWithHandler[]  _socketMonitorsWithHandler;
@@ -121,12 +160,14 @@ namespace SimpleZmq
             // creating poll-items for the sockets to be polled
             for (int i = 0; i < socketsWithHandlers.Length; i++, pollItemIndex++)
             {
-                _pollItems[pollItemIndex] = new ZmqPollItem { Socket = socketsWithHandlers[i].ZmqSocket.NativePtr, Events = ZMQ_POLLIN | ZMQ_POLLOUT };
+                var socketWithHandlers = socketsWithHandlers[i];
+                _pollItems[pollItemIndex] = new ZmqPollItem { Socket = socketWithHandlers.ZmqSocket.NativePtr, Events = socketWithHandlers.ZmqEventsFlags };
             }
             // creating poll-items for the socket-monitors to be polled
             for (int i = 0; i < socketMonitorsWithHandler.Length; i++, pollItemIndex++)
             {
-                _pollItems[pollItemIndex] = new ZmqPollItem { Socket = socketMonitorsWithHandler[i].ZmqSocketMonitor.Socket.NativePtr, Events = ZMQ_POLLIN };
+                var socketMonitorWithHandler = socketMonitorsWithHandler[i];
+                _pollItems[pollItemIndex] = new ZmqPollItem { Socket = socketMonitorWithHandler.ZmqSocketMonitor.Socket.NativePtr, Events = socketMonitorWithHandler.ZmqEventsFlags };
                 // storing the socket monitors' poll-items separately to be able to poll only the monitors
                 _socketMonitorPollItems[i] = _pollItems[pollItemIndex];
             }
@@ -187,11 +228,20 @@ namespace SimpleZmq
             return true;
         }
 
+        /// <summary>
+        /// Creates a new builder to builder up a <see cref="ZmqPoller"/> instance.
+        /// </summary>
+        /// <returns>A new builder to builder up a <see cref="ZmqPoller"/> instance.</returns>
         public static ZmqPollerBuilder New()
         {
             return new ZmqPollerBuilder();
         }
 
+        /// <summary>
+        /// Polls the sockets and monitors until the specified time-out.
+        /// </summary>
+        /// <param name="timeOutMilliseconds">The time-out in milliseconds.</param>
+        /// <returns>True if the polling received any event to be processed.</returns>
         public bool Poll(int timeOutMilliseconds)
         {
             var numberOfReadySockets = Zmq.ThrowIfError_IgnoreContextTerminated(
@@ -207,6 +257,14 @@ namespace SimpleZmq
             return numberOfReadySockets > 0;
         }
 
+        /// <summary>
+        /// Polls only the socket monitors until they are stopped.
+        /// </summary>
+        /// <remarks>
+        /// The monitoring sockets must not be disposed until they received the last message, the stop. That's why
+        /// the monitored sockets must be disposed first, then with this method all remaining monitoring events can be processed and once this returns
+        /// the socket monitors also can be disposed.
+        /// </remarks>
         public void PollMonitorSocketsUntilTheyStop()
         {
             while (!AreAllMonitorSocketsStopped())

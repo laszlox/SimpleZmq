@@ -7,7 +7,7 @@ using System.Text;
 namespace SimpleZmq
 {
     [StructLayout(LayoutKind.Sequential)]
-    public struct ZmqPollItem
+    internal struct ZmqPollItem
     {
         public IntPtr Socket;
         public IntPtr FileDescriptor;
