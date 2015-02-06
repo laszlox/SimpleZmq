@@ -37,7 +37,7 @@ namespace SimpleZmq.Test
                             int numberOfExpectedMessagesIntoSocket2 = 1;
 
                             var poller = ZmqPoller.New()
-                                .With(
+                                .HandleEventsOf(
                                     new[] { pullSocket1, pullSocket2 },
                                     s =>
                                     {

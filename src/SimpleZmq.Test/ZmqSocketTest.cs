@@ -291,7 +291,7 @@ namespace SimpleZmq.Test
                             int numberOfExpectedMessages = 10;
 
                             var poller = ZmqPoller.New()
-                                .With(
+                                .HandleEventsOf(
                                     subSocket,
                                     s =>
                                     {

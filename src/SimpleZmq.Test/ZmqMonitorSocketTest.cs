@@ -30,7 +30,7 @@ namespace SimpleZmq.Test
                             int numberOfReceivedMessages = 0;
 
                             var clientPoller = ZmqPoller.New()
-                                .With(
+                                .HandleEventsOf(
                                     zmqClientSocket,
                                     s =>
                                     {
@@ -44,7 +44,7 @@ namespace SimpleZmq.Test
                                         numberOfReceivedMessages++;
                                     }
                                  )
-                                .With(
+                                .HandleEventsOf(
                                     zmqClientSocketMonitor,
                                     e =>
                                     {
@@ -63,7 +63,7 @@ namespace SimpleZmq.Test
                     });
 
                     var serverPoller = ZmqPoller.New()
-                        .With(
+                        .HandleEventsOf(
                             zmqServerSocketMonitor,
                             e =>
                             {

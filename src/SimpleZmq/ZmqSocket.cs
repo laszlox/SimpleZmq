@@ -381,6 +381,9 @@ namespace SimpleZmq
         /// </remarks>
         public bool Send(byte[] buffer, int length, bool hasMore = false, bool doNotWait = false)
         {
+            Argument.ExpectNonNull(buffer, "buffer");
+            Argument.ExpectGreaterOrEqualThanZero(length, "length");
+
             int sendFlags = (doNotWait ? ZMQ_DONTWAIT : 0) | (hasMore ? ZMQ_SNDMORE : 0);
             return Zmq.ThrowIfError_IgnoreContextTerminated(
                 Zmq.RetryIfInterrupted(LibZmq.zmq_send_func, _zmqSocketPtr, buffer, length, sendFlags),
@@ -414,7 +417,7 @@ namespace SimpleZmq
                 length = lengthOrRetry.Value;
 
                 // recreating the buffer if it's not large enough
-                if (buffer.Length < length)
+                if (buffer == null || buffer.Length < length)
                 {
                     buffer = new byte[length];
                 }
