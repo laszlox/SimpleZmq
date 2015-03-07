@@ -18,46 +18,82 @@ namespace SimpleZmq.Native
             LoadLibZmq();
         }
 
+        private static bool TryLoadLibZmq(string libzmqFilePath)
+        {
+            return File.Exists(libzmqFilePath) && Win32.LoadLibrary(libzmqFilePath) != IntPtr.Zero;
+        }
+
         private static void LoadLibZmq()
         {
             var executingAssembly = Assembly.GetExecutingAssembly();
             var bitnessString = Environment.Is64BitProcess ? "x64" : "x86";
-            var libzmqPath = Path.Combine(Path.GetTempPath(), String.Format("{0}-{1}-{2}", executingAssembly.GetName().Name, executingAssembly.GetName().Version, bitnessString));
-            var libzmqFilePath = Path.Combine(libzmqPath, "libzmq.dll");
+            var libzmqDirectory = String.Format("{0}-{1}-{2}", executingAssembly.GetName().Name, executingAssembly.GetName().Version, bitnessString);
+            const string libzmqFileName = "libzmq.dll";
 
-            Directory.CreateDirectory(libzmqPath);
-            if (!File.Exists(libzmqFilePath))
+            var libzmqAssemblyDirectory = Path.GetDirectoryName(executingAssembly.Location);
+            if (libzmqAssemblyDirectory != null)
             {
-                // Copying the libzmq dll from the embedded resource into a temporary file. If the file already exists, we just use it (the path contains the version number too).
-                var libzmqResourceName = String.Format("SimpleZmq.lib.{0}.libzmq.dll", bitnessString);
-                using (var libzmqResourceStream = executingAssembly.GetManifestResourceStream(libzmqResourceName))
-                {
-                    if (libzmqResourceStream == null)
-                    {
-                        throw new InvalidOperationException(String.Format("Couldn't load libzmq from the embedded resource '{0}'", libzmqResourceName));
-                    }
+                var libzmqAssemblyPath = Path.Combine(libzmqAssemblyDirectory, libzmqDirectory);
+                var libzmqAssemblyFilePath = Path.Combine(libzmqAssemblyPath, libzmqFileName);
 
-                    try
-                    {
-                        using (var libzmqFile = File.Create(libzmqFilePath))
-                        {
-                            libzmqResourceStream.CopyTo(libzmqFile);
-                        }
-                    }
-                    catch (UnauthorizedAccessException ex)
-                    {
-                        throw new InvalidOperationException("Couldn't copy libzmq.dll into a temporary file.", ex);
-                    }
-                    catch (IOException ex)
-                    {
-                        throw new InvalidOperationException("Couldn't copy libzmq.dll into a temporary file.", ex);
-                    }
+                // First trying to load it from this assembly's folder's sub-folder: e.g .\SimpleZmq-4.0.2-x64\libzmq.dll
+                // It's useful if someone wants to package libzmq.dlls next to their application and don't rely on the extract-to-temp-folder behavior.
+                if (TryLoadLibZmq(libzmqAssemblyFilePath))
+                {
+                    return;
                 }
             }
 
-            if (Win32.LoadLibrary(libzmqFilePath) == IntPtr.Zero)
+            // we need to extract the embedded libzmq.dll and load that
+            var libzmqTempPath = Path.Combine(Path.GetTempPath(), libzmqDirectory);
+            var libzmqTempFilePath = Path.Combine(libzmqTempPath, libzmqFileName);
+
+            Directory.CreateDirectory(libzmqTempPath);
+            if (File.Exists(libzmqTempFilePath))
             {
-                throw new InvalidOperationException(String.Format("Couldn't load library '{0}'", libzmqFilePath));
+                try
+                {
+                    // if the file already exists, we delete and re-extract so that we surely load the embedded version
+                    File.Delete(libzmqTempFilePath);
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    throw new InvalidOperationException(String.Format("Couldn't delete existing {0} from {1}.", libzmqFileName, libzmqTempFilePath), ex);
+                }
+                catch (IOException ex)
+                {
+                    throw new InvalidOperationException(String.Format("Couldn't delete existing {0} from {1}.", libzmqFileName, libzmqTempFilePath), ex);
+                }
+            }
+            // Copying the libzmq dll from the embedded resource into a temporary file.
+            var libzmqResourceName = String.Format("SimpleZmq.lib.{0}.libzmq.dll", bitnessString);
+            using (var libzmqResourceStream = executingAssembly.GetManifestResourceStream(libzmqResourceName))
+            {
+                if (libzmqResourceStream == null)
+                {
+                    throw new InvalidOperationException(String.Format("Couldn't load {0} from the embedded resource '{1}'.", libzmqFileName, libzmqResourceName));
+                }
+
+                try
+                {
+                    using (var libzmqFile = File.Create(libzmqTempFilePath))
+                    {
+                        libzmqResourceStream.CopyTo(libzmqFile);
+                    }
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    throw new InvalidOperationException(String.Format("Couldn't copy {0} into a temporary file: {1}.", libzmqFileName, libzmqTempFilePath), ex);
+                }
+                catch (IOException ex)
+                {
+                    throw new InvalidOperationException(String.Format("Couldn't copy {0} into a temporary file: {1}.", libzmqFileName, libzmqTempFilePath), ex);
+                }
+            }
+
+            if (!TryLoadLibZmq(libzmqTempFilePath))
+            {
+                throw new InvalidOperationException(String.Format("Couldn't load {0} from {1}.", libzmqFileName, libzmqTempFilePath));
             }
         }
 
