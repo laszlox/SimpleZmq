@@ -171,7 +171,7 @@ namespace SimpleZmq
         /// <summary>
         /// Gets a value indicating whether the zmq monitor was stopped or not. The zmq monitor's inproc PAIR socket must be polled until it receives the last message, which is the stop.
         /// </summary>
-        internal bool IsStopped
+        public bool IsStopped
         {
             get { return _isStopped; }
         }
