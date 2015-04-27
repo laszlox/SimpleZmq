@@ -2,7 +2,7 @@
 <package >
   <metadata>
     <id>SimpleZmq</id>
-    <version>4.0.5</version>
+    <version>4.0.6</version>
     <authors>Laszlo Bende</authors>
     <owners>Laszlo Bende</owners>
     <licenseUrl>http://opensource.org/licenses/MIT</licenseUrl>
