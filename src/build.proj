@@ -13,7 +13,11 @@
       <OutputFiles Include="$(SolutionDir)\*\bin\$(Configuration)\SimpleZmq.dll" />
       <OutputFiles Include="$(SolutionDir)\*\bin\$(Configuration)\SimpleZmq.pdb" />
       <OutputFiles Include="$(SolutionDir)\*\bin\$(Configuration)\SimpleZmq.xml" />
+      <LibZmqX86Files Include="$(SolutionDir)\SimpleZmq\lib\x86\libzmq.dll" />
+      <LibZmqX64Files Include="$(SolutionDir)\SimpleZmq\lib\x64\libzmq.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(OutputFiles)" DestinationFolder="$(BuildDir)" ContinueOnError="true" />
+    <Copy SourceFiles="@(LibZmqX86Files)" DestinationFolder="$(BuildDir)\x86" ContinueOnError="true" />
+    <Copy SourceFiles="@(LibZmqX64Files)" DestinationFolder="$(BuildDir)\x64" ContinueOnError="true" />
   </Target>
 </Project>
